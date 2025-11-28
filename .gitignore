@@ -1,0 +1,105 @@
+# Dependencies
+node_modules/
+# UWAGA: package-lock.json, yarn.lock, pnpm-lock.yaml
+# powinny być w repo - zapewniają deterministyczne instalacje!
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Build outputs
+dist/
+build/
+*.tgz
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend.log
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Uploads & Screenshots
+uploads/
+screenshots/
+test-screenshots/
+test-screenshots-*/
+*.png
+!frontend/src/**/*.png
+
+# Coverage & Testing
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Test files (scripts)
+test*.mjs
+test*.js
+!frontend/src/**/*.test.js
+!frontend/src/**/*.test.ts
+e2e-*.mjs
+debug-*.mjs
+final-test.js
+api-comprehensive-tests.sh
+test-frontend-load.html
+
+# Documentation (auto-generated / temporary)
+ARCHITECTURE.md
+CHECKLIST.md
+CRITICAL_FINDINGS.md
+DASHBOARD_LOADING_FIX_REPORT.md
+DATA_CONSISTENCY_FIX.md
+DIAGNOSTIC.md
+E2E_TESTING_TODO.md
+E2E_TEST_REPORT_COMPREHENSIVE.md
+E2E_TEST_SUMMARY.md
+FIXES_SUMMARY.md
+FIX_COMPLETE.txt
+IMPLEMENTATION_SUMMARY.md
+PROJECT_STATUS.md
+SOLUTION.md
+TESTER_ASSIGNMENT.md
+TESTING_INDEX.md
+TEST_EXECUTION_SUMMARY.txt
+TEST_REPORT.md
+TEST_REPORT_5_CARD_LAYOUT.md
+URL_PARAMETERS.md
+URL_PARAMS_IMPLEMENTATION_SUMMARY.md
+
+# Keep these docs
+!README.md
+!QUICK_START.md
+!SAVE_DASHBOARD_IMPLEMENTATION.md
+
+# Claude Code
+.claude-todo.md
+.todos-*.md
+.migration-summary.md

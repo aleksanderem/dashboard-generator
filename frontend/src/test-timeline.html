@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimpleTimelineCard Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .simplified-widget {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .widget-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-8">SimpleTimelineCard Visual Test</h1>
+    
+    <!-- Test 1: Normal Mode with Default Events -->
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Test 1: Normal Mode - Default Events</h2>
+      <div class="simplified-widget">
+        <div class="widget-title">Recent Activity</div>
+        <div class="mt-4 overflow-hidden">
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-green-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">System deployment completed</div>
+              <div class="text-xs text-gray-500 mt-0.5">2 hours ago</div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-green-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">Database backup initiated</div>
+              <div class="text-xs text-gray-500 mt-0.5">4 hours ago</div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-yellow-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">Warning: High memory usage</div>
+              <div class="text-xs text-gray-500 mt-0.5">6 hours ago</div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-blue-500 z-10"></div>
+              <!-- NO LINE after last item -->
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">New user registration</div>
+              <div class="text-xs text-gray-500 mt-0.5">8 hours ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test 2: Skeleton Mode -->
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Test 2: Skeleton Mode</h2>
+      <div class="simplified-widget">
+        <div class="widget-title">Loading Timeline...</div>
+        <div class="mt-4 overflow-hidden">
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-green-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="h-4 bg-gray-200 rounded animate-pulse w-3/4 mb-2"></div>
+              <div class="h-3 bg-gray-200 rounded animate-pulse w-1/2"></div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-green-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="h-4 bg-gray-200 rounded animate-pulse w-3/4 mb-2"></div>
+              <div class="h-3 bg-gray-200 rounded animate-pulse w-1/2"></div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-yellow-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="h-4 bg-gray-200 rounded animate-pulse w-3/4 mb-2"></div>
+              <div class="h-3 bg-gray-200 rounded animate-pulse w-1/2"></div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-blue-500 z-10"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="h-4 bg-gray-200 rounded animate-pulse w-3/4 mb-2"></div>
+              <div class="h-3 bg-gray-200 rounded animate-pulse w-1/2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test 3: Different Status Colors -->
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Test 3: Different Status Colors</h2>
+      <div class="simplified-widget">
+        <div class="widget-title">System Events</div>
+        <div class="mt-4 overflow-hidden">
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-green-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">Success Event</div>
+              <div class="text-xs text-gray-500 mt-0.5">Green dot (success)</div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-yellow-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">Warning Event</div>
+              <div class="text-xs text-gray-500 mt-0.5">Yellow dot (warning)</div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-red-500 z-10"></div>
+              <div class="w-0.5 h-full absolute top-4 bg-gray-300" style="min-height: 2rem;"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">Error Event</div>
+              <div class="text-xs text-gray-500 mt-0.5">Red dot (error)</div>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3 relative">
+            <div class="relative flex flex-col items-center">
+              <div class="w-4 h-4 rounded-full bg-blue-500 z-10"></div>
+            </div>
+            <div class="flex-1 pb-6">
+              <div class="text-sm font-medium text-gray-900">Default Event</div>
+              <div class="text-xs text-gray-500 mt-0.5">Blue dot (default) - No line after last</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test 4: Verify Dot Size (comparison) -->
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Test 4: Dot Size Comparison</h2>
+      <div class="flex gap-8 items-center">
+        <div>
+          <p class="text-sm text-gray-600 mb-2">Old size (w-2 h-2):</p>
+          <div class="w-2 h-2 rounded-full bg-teal-500"></div>
+        </div>
+        <div>
+          <p class="text-sm text-gray-600 mb-2">New size (w-4 h-4):</p>
+          <div class="w-4 h-4 rounded-full bg-teal-500"></div>
+        </div>
+        <div>
+          <p class="text-sm text-gray-600 mb-2">Reference (w-6 h-6):</p>
+          <div class="w-6 h-6 rounded-full bg-gray-400"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
