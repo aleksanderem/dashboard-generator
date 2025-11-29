@@ -1,4 +1,11 @@
-export default function SimpleHeatmap({ title, data = [] }) {
+import Skeleton from '../Skeleton';
+
+export default function SimpleHeatmap({ title, data = [], skeleton = false }) {
+  // skeleton can be: false, 'title', 'semi', or 'full'
+  const showTitleSkeleton = skeleton === 'title' || skeleton === 'semi' || skeleton === 'full' || skeleton === true;
+  const showTextSkeleton = skeleton === 'semi' || skeleton === 'full';
+  const showDataSkeleton = skeleton === 'full';
+
   // Default data if none provided - 7x5 grid
   const defaultData = [
     [45, 67, 89, 34, 56, 78, 23],
@@ -28,33 +35,43 @@ export default function SimpleHeatmap({ title, data = [] }) {
 
   return (
     <div className="simplified-widget" style={{ display: 'flex', flexDirection: 'column' }}>
-      <div className="widget-title">{title}</div>
-      <div
-        className="grid gap-1 mt-4"
-        style={{
-          gridTemplateColumns: `repeat(${heatmapData[0]?.length || 7}, 1fr)`,
-          gridTemplateRows: `repeat(${heatmapData.length}, 1fr)`,
-          flex: 1,
-          height: '100%'
-        }}
-      >
-        {heatmapData.flat().map((value, index) => (
-          <div
-            key={index}
-            className="rounded flex items-center justify-center"
-            style={{
-              backgroundColor: getColor(value)
-            }}
-          >
-            <span
-              className="text-xs font-semibold"
-              style={{ color: getTextColor(value) }}
-            >
-              {value}
-            </span>
-          </div>
-        ))}
+      <div className="widget-title">
+        {showTitleSkeleton ? <Skeleton width="60%" height="14px" /> : title}
       </div>
+      {showDataSkeleton ? (
+        <div className="flex-1 mt-4">
+          <Skeleton width="100%" height="100%" />
+        </div>
+      ) : (
+        <div
+          className="grid gap-1 mt-4"
+          style={{
+            gridTemplateColumns: `repeat(${heatmapData[0]?.length || 7}, 1fr)`,
+            gridTemplateRows: `repeat(${heatmapData.length}, 1fr)`,
+            flex: 1,
+            height: '100%'
+          }}
+        >
+          {heatmapData.flat().map((value, index) => (
+            <div
+              key={index}
+              className="rounded flex items-center justify-center"
+              style={{
+                backgroundColor: getColor(value)
+              }}
+            >
+              {!showTextSkeleton && (
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: getTextColor(value) }}
+                >
+                  {value}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

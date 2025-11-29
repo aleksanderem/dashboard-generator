@@ -269,6 +269,8 @@ function extractProps(widget) {
       return {
         ...baseProps,
         percentage: widget.percentage || widget.value || 50,
+        current: widget.current,
+        total: widget.total,
         label: widget.label || widget.subtitle || '',
       };
 

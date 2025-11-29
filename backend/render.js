@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import { chromium } from 'playwright';
 
 /**
  * Theme definitions matching frontend themes
@@ -696,20 +696,20 @@ export async function renderDashboard(dashboardData, options = {}) {
     // Generate HTML
     const html = generateDashboardHTML(dashboardData, options);
 
-    // Launch browser
-    browser = await puppeteer.launch({
-      headless: 'new',
+    // Launch browser using Playwright
+    browser = await chromium.launch({
+      headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
-    const page = await browser.newPage();
-
-    // Set viewport
-    await page.setViewport({ width, height });
+    const context = await browser.newContext({
+      viewport: { width, height },
+    });
+    const page = await context.newPage();
 
     // Set content
     await page.setContent(html, {
-      waitUntil: 'networkidle0',
+      waitUntil: 'networkidle',
       timeout: 30000,
     });
 
@@ -719,11 +719,13 @@ export async function renderDashboard(dashboardData, options = {}) {
     );
 
     if (hasCharts) {
-      await page.waitForFunction(() => {
-        return window.Chart !== undefined;
-      }, { timeout: 5000 }).catch(() => {
+      try {
+        await page.waitForFunction(() => {
+          return window.Chart !== undefined;
+        }, { timeout: 5000 });
+      } catch {
         console.warn('[Render] Chart.js timeout - continuing anyway');
-      });
+      }
       // Give charts time to render
       await new Promise(resolve => setTimeout(resolve, 1000));
     }

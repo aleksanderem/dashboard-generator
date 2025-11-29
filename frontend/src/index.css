@@ -79,7 +79,7 @@ body {
 /* Simplified widget styles */
 .simplified-widget {
   @apply bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200;
-  @apply p-6 h-full flex flex-col;
+  @apply p-6 h-full flex flex-col justify-between;
 }
 
 .widget-title {
@@ -116,4 +116,19 @@ body {
   50% {
     opacity: 0.5;
   }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-loader {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
 }

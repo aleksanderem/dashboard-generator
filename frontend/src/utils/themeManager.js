@@ -50,13 +50,32 @@ export const themes = {
 /**
  * Apply theme to document
  * @param {string} themeName - Theme name from themes object
+ * @param {object} customThemeData - Optional custom theme data { primary, primaryLight, primaryDark }
  */
-export function applyTheme(themeName) {
+export function applyTheme(themeName, customThemeData = null) {
+  // If custom theme data is provided, use it directly
+  if (customThemeData) {
+    document.documentElement.style.setProperty('--theme-primary', customThemeData.primary);
+    document.documentElement.style.setProperty('--theme-primary-light', customThemeData.primaryLight);
+    document.documentElement.style.setProperty('--theme-primary-dark', customThemeData.primaryDark);
+    // Dispatch theme change event
+    window.dispatchEvent(new CustomEvent('themechange'));
+    return;
+  }
+
+  // If themeName starts with 'custom-', don't override (it was set directly)
+  if (themeName && themeName.startsWith('custom-')) {
+    return;
+  }
+
   const theme = themes[themeName] || themes.teal;
 
   document.documentElement.style.setProperty('--theme-primary', theme.primary);
   document.documentElement.style.setProperty('--theme-primary-light', theme.primaryLight);
   document.documentElement.style.setProperty('--theme-primary-dark', theme.primaryDark);
+
+  // Dispatch theme change event
+  window.dispatchEvent(new CustomEvent('themechange'));
 }
 
 /**

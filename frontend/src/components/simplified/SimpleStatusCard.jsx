@@ -1,6 +1,12 @@
 import { CheckCircle, AlertCircle, XCircle, Clock } from 'lucide-react';
+import Skeleton from '../Skeleton';
 
-export default function SimpleStatusCard({ title = 'Status', items = [] }) {
+export default function SimpleStatusCard({ title = 'Status', items = [], skeleton = false }) {
+  // skeleton can be: false, 'title', 'semi', or 'full'
+  const showTitleSkeleton = skeleton === 'title' || skeleton === 'semi' || skeleton === 'full' || skeleton === true;
+  const showTextSkeleton = skeleton === 'semi' || skeleton === 'full';
+  const showDataSkeleton = skeleton === 'full';
+
   const defaultItems = items.length > 0 ? items : [
     { status: 'success', label: 'Active Users', value: '1,245' },
     { status: 'warning', label: 'Pending Tasks', value: '23' },
@@ -24,15 +30,21 @@ export default function SimpleStatusCard({ title = 'Status', items = [] }) {
 
   return (
     <div className="simplified-widget">
-      <div className="widget-title">{title}</div>
+      <div className="widget-title">
+        {showTitleSkeleton ? <Skeleton width="60%" height="14px" /> : title}
+      </div>
       <div className="space-y-3 mt-4">
         {defaultItems.map((item, index) => (
           <div key={index} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {getStatusIcon(item.status)}
-              <span className="text-sm text-gray-700">{item.label}</span>
+              <span className="text-sm text-gray-700">
+                {showTextSkeleton ? <Skeleton width="100px" height="14px" /> : item.label}
+              </span>
             </div>
-            <span className="text-sm font-semibold text-gray-900">{item.value}</span>
+            <span className="text-sm font-semibold text-gray-900">
+              {showTextSkeleton ? <Skeleton width="60px" height="14px" /> : item.value}
+            </span>
           </div>
         ))}
       </div>

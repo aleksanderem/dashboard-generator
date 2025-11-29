@@ -2,18 +2,49 @@ import { useState, useEffect } from 'react';
 import ScreenshotUploader from './components/ScreenshotUploader';
 import DashboardPreview from './components/DashboardPreview';
 import SavedDashboards from './components/SavedDashboards';
-import { Upload, Database, Wrench } from 'lucide-react';
+import LoginScreen from './components/LoginScreen';
+import { Upload, Database, Wrench, Key, LogOut, Copy, Check, Menu, X, BookOpen, Settings } from 'lucide-react';
 import { fetchDashboardById } from './utils/api';
+import { isLoggedIn, getSession, clearSession } from './utils/sessionManager';
 
 function App() {
   const [dashboardData, setDashboardData] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedTheme, setSelectedTheme] = useState('teal');
-  const [currentView, setCurrentView] = useState('upload'); // 'upload' | 'saved' | 'preview'
+  const [currentView, setCurrentView] = useState('create'); // 'create' | 'saved' | 'upload' | 'preview'
   const [loadedDashboardId, setLoadedDashboardId] = useState(null);
   const [loadedDashboardName, setLoadedDashboardName] = useState(null);
   const [urlParams, setUrlParams] = useState({ theme: null, appName: null, appCategory: null, id: null, skeletonMode: null });
+
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(isLoggedIn());
+  const [session, setSession] = useState(getSession());
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [initialEditMode, setInitialEditMode] = useState(false);
+
+  const handleLoginSuccess = (sessionData) => {
+    setSession(sessionData);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    setIsAuthenticated(false);
+    setSession(null);
+    setDashboardData(null);
+    setCurrentView('create');
+  };
+
+  const copyApiKey = () => {
+    if (session?.session_key) {
+      navigator.clipboard.writeText(session.session_key);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    }
+  };
 
   // Update URL when settings change
   const updateURL = (params) => {
@@ -58,11 +89,12 @@ function App() {
     setIsAnalyzing(false);
     setLoadedDashboardId(null);
     setLoadedDashboardName(null);
-    setCurrentView('upload');
+    setCurrentView('create');
   };
 
   const handleViewSavedDashboards = () => {
     setCurrentView('saved');
+    setShowDrawer(false); // Close drawer
   };
 
   const handleBuildFromScratch = () => {
@@ -77,7 +109,9 @@ function App() {
     setSelectedTheme('teal');
     setLoadedDashboardId(null); // Reset dashboard ID for new builds
     setLoadedDashboardName(null); // Reset dashboard name for new builds
+    setInitialEditMode(true); // Enable edit mode by default for new builds
     setCurrentView('preview');
+    setShowDrawer(false); // Close drawer
   };
 
   const handleLoadDashboard = async (dashboardId) => {
@@ -127,7 +161,7 @@ function App() {
   };
 
   const handleCloseSavedDashboards = () => {
-    setCurrentView('upload');
+    setCurrentView('create');
   };
 
   // Parse URL parameters on mount
@@ -141,11 +175,12 @@ function App() {
     const id = searchParams.get('id');
     const skeleton = searchParams.get('skeleton');
     const skeletonMode = skeleton === 'true';
+    const renderMode = searchParams.get('render') === 'true';
 
-    console.log('[APP] URL Parameters:', { theme, appName, appCategory, id, skeletonMode });
+    console.log('[APP] URL Parameters:', { theme, appName, appCategory, id, skeletonMode, renderMode });
 
     // Store URL params
-    const params = { theme, appName, appCategory, id, skeletonMode };
+    const params = { theme, appName, appCategory, id, skeletonMode, renderMode };
     setUrlParams(params);
 
     // Apply theme if provided
@@ -156,62 +191,222 @@ function App() {
     // Load dashboard by ID if provided
     if (id) {
       handleLoadDashboard(id);
+    } else if (!id) {
+      // If no ID in URL, initialize empty dashboard for create view
+      const emptyDashboard = {
+        layout: { columns: 20, rows: 30 },
+        theme: 'teal',
+        widgets: [],
+        gridLayout: [],
+        metadata: { widgetCount: 0, manuallyCreated: true }
+      };
+      setDashboardData(emptyDashboard);
+      setInitialEditMode(true);
     }
   }, []); // Empty dependency array - run only on mount
+
+  // Show login screen if not authenticated (unless in render mode)
+  if (!isAuthenticated && !urlParams.renderMode) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            {/* Logo - clickable to go to start */}
+            <button
+              onClick={handleReset}
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+            >
               <div className="p-2 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg">
                 <Upload className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+              <div className="text-left hidden sm:block">
+                <h1 className="text-xl font-bold text-gray-900">
                   Dashboard AI Generator
                 </h1>
-                <p className="text-sm text-gray-500">
-                  Transform complex dashboards into beautiful simplified views
-                </p>
               </div>
-            </div>
+            </button>
 
-            <div className="flex items-center gap-3">
-              {/* Saved Dashboards Button */}
+            {/* Center - Navigation Tabs */}
+            <nav className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
               <button
-                onClick={handleViewSavedDashboards}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => {
+                  // Create new empty dashboard
+                  const emptyDashboard = {
+                    layout: { columns: 20, rows: 30 },
+                    theme: 'teal',
+                    widgets: [],
+                    gridLayout: [],
+                    metadata: { widgetCount: 0, manuallyCreated: true }
+                  };
+                  setDashboardData(emptyDashboard);
+                  setSelectedTheme('teal');
+                  setLoadedDashboardId(null);
+                  setLoadedDashboardName(null);
+                  setInitialEditMode(true);
+                  setCurrentView('create');
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentView === 'create'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                <Database className="w-4 h-4" />
-                Saved Dashboards
+                <span className="flex items-center gap-2">
+                  <Wrench className="w-4 h-4" />
+                  Create
+                </span>
               </button>
-
-              {/* Build from Scratch Button */}
               <button
-                onClick={handleBuildFromScratch}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+                onClick={() => setCurrentView('saved')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentView === 'saved'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                <Wrench className="w-4 h-4" />
-                Build from Scratch
+                <span className="flex items-center gap-2">
+                  <Database className="w-4 h-4" />
+                  Saved
+                </span>
               </button>
-
-              {/* Upload New Button - only when dashboard exists */}
-              {dashboardData && (
-                <button
-                  onClick={handleReset}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 border border-teal-600 rounded-lg hover:bg-teal-700 transition-colors"
-                >
+              <button
+                onClick={() => setCurrentView('upload')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentView === 'upload'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <span className="flex items-center gap-2">
                   <Upload className="w-4 h-4" />
-                  Upload New
-                </button>
-              )}
+                  Upload
+                </span>
+              </button>
+            </nav>
+
+            {/* Right side - hamburger menu */}
+            <div className="flex items-center gap-3">
+              {/* User email (visible) */}
+              <span className="hidden md:inline text-sm text-gray-600">{session?.email}</span>
+
+              {/* Hamburger Menu Button */}
+              <button
+                onClick={() => setShowDrawer(true)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Drawer Overlay */}
+      {showDrawer && (
+        <div className="fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setShowDrawer(false)}
+          />
+
+          {/* Drawer Panel */}
+          <div className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+              <button
+                onClick={() => setShowDrawer(false)}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Drawer Content */}
+            <div className="p-4 space-y-2">
+              {/* Documentation */}
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); /* TODO: Add docs modal */ setShowDrawer(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <BookOpen className="w-5 h-5 text-blue-600" />
+                <span className="font-medium">Documentation</span>
+              </a>
+
+              {/* Settings - opens DashboardPreview settings modal */}
+              <button
+                onClick={() => {
+                  // Navigate to create view first if needed, then settings can be accessed from there
+                  if (currentView !== 'preview') {
+                    handleBuildFromScratch();
+                  }
+                  setShowDrawer(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Settings className="w-5 h-5 text-purple-600" />
+                <span className="font-medium">Settings</span>
+                <span className="text-xs text-gray-400 ml-auto">via Dashboard</span>
+              </button>
+
+              <div className="border-t border-gray-200 my-4" />
+
+              {/* API Key Section */}
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Key className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">API Key</span>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-500">{session?.email}</span>
+                    <button
+                      onClick={copyApiKey}
+                      className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700"
+                    >
+                      {copiedKey ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <code className="block text-xs font-mono text-gray-700 break-all">
+                    {session?.session_key}
+                  </code>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Use in X-Session-Key header for API calls
+                </p>
+              </div>
+
+              <div className="border-t border-gray-200 my-4" />
+
+              {/* Logout */}
+              <button
+                onClick={() => { handleLogout(); setShowDrawer(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -287,7 +482,7 @@ function App() {
           />
         )}
 
-        {currentView === 'preview' && dashboardData && (
+        {(currentView === 'create' || currentView === 'preview') && dashboardData && (
           <DashboardPreview
             dashboardData={dashboardData}
             theme={selectedTheme}
@@ -314,6 +509,7 @@ function App() {
                 skeletonMode: newMode
               });
             }}
+            initialEditMode={initialEditMode}
           />
         )}
       </main>

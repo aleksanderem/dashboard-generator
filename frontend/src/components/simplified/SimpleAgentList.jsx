@@ -1,5 +1,12 @@
 // List of top agents with percentages
-export default function SimpleAgentList({ title, agents = [] }) {
+import Skeleton from '../Skeleton';
+
+export default function SimpleAgentList({ title, agents = [], skeleton = false }) {
+  // skeleton can be: false, 'title', 'semi', or 'full'
+  const showTitleSkeleton = skeleton === 'title' || skeleton === 'semi' || skeleton === 'full' || skeleton === true;
+  const showTextSkeleton = skeleton === 'semi' || skeleton === 'full';
+  const showDataSkeleton = skeleton === 'full';
+
   // Generate theme-based avatar colors
   const getAvatarColor = (index) => {
     const shades = [
@@ -20,28 +27,54 @@ export default function SimpleAgentList({ title, agents = [] }) {
 
   return (
     <div className="simplified-widget">
-      <div className="widget-title">{title}</div>
+      <div className="widget-title">
+        {showTitleSkeleton ? <Skeleton width="60%" height="14px" /> : title}
+      </div>
       <div className="space-y-3 mt-4 overflow-hidden">
-        {defaultAgents.map((agent, index) => (
-          <div
-            key={index}
-            className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full flex-shrink-0 bg-gray-200 animate-pulse"
-                style={{ backgroundColor: agent.avatar || getAvatarColor(index) }}
-              />
-              <div className="space-y-2">
-                <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
-                <div className="h-2.5 w-16 bg-gray-200 rounded animate-pulse" />
+        {showDataSkeleton ? (
+          // Show skeleton list items when full skeleton mode
+          Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg"
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton width="40px" height="40px" borderRadius="50%" />
+                <div>
+                  <Skeleton width="96px" height="12px" />
+                  <Skeleton width="64px" height="10px" style={{ marginTop: '6px' }} />
+                </div>
+              </div>
+              <Skeleton width="60px" height="32px" />
+            </div>
+          ))
+        ) : (
+          // Show real data
+          defaultAgents.map((agent, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-full flex-shrink-0 bg-gray-200"
+                  style={{ backgroundColor: agent.avatar || getAvatarColor(index) }}
+                />
+                <div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {showTextSkeleton ? <Skeleton width="96px" height="12px" /> : agent.name}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {showTextSkeleton ? <Skeleton width="64px" height="10px" /> : `${agent.tasks} tasks`}
+                  </div>
+                </div>
+              </div>
+              <div className="text-2xl font-bold" style={{ color: 'var(--theme-primary)' }}>
+                {showTextSkeleton ? <Skeleton width="50px" height="24px" /> : `${agent.percentage}%`}
               </div>
             </div>
-            <div className="text-2xl font-bold" style={{ color: 'var(--theme-primary)' }}>
-              {agent.percentage}%
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

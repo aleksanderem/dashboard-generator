@@ -1,4 +1,6 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Skeleton from '../Skeleton';
+import useThemeColor from '../../hooks/useThemeColor';
 
 const CustomTooltip = ({ active, payload }) => {
   if (!payload || !payload.length) return null;
@@ -15,7 +17,15 @@ const CustomTooltip = ({ active, payload }) => {
   );
 };
 
-export default function SimpleLineChart({ title, data, color = '#14b8a6', height, showTooltip = true }) {
+export default function SimpleLineChart({ title, data, color, height, showTooltip = true, skeleton = false }) {
+  const themeColor = useThemeColor();
+  const chartColor = color || themeColor;
+
+  // skeleton can be: false, 'title', 'semi', or 'full'
+  const showTitleSkeleton = skeleton === 'title' || skeleton === 'semi' || skeleton === 'full' || skeleton === true;
+  const showTextSkeleton = skeleton === 'semi' || skeleton === 'full';
+  const showDataSkeleton = skeleton === 'full';
+
   // Default data if none provided
   const defaultData = [
     { name: 'Mon', value: 120 },
@@ -33,40 +43,51 @@ export default function SimpleLineChart({ title, data, color = '#14b8a6', height
   // Always show tooltip for middle point
   const middleIndex = Math.floor((chartData?.length || 0) / 2);
 
+  // In semi mode, hide axis labels (they are text describing data)
+  const axisTickStyle = showTextSkeleton
+    ? { fontSize: 0, fill: 'transparent' }
+    : { fontSize: 12, fill: '#6b7280' };
+
   return (
     <div className="simplified-widget">
-      <div className="widget-title">{title}</div>
+      <div className="widget-title">
+        {showTitleSkeleton ? <Skeleton width="60%" height="14px" /> : title}
+      </div>
       <div className="flex-1 mt-4" style={{ minHeight: height ? `${height}px` : '200px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 12, fill: '#6b7280' }}
-              stroke="#e5e7eb"
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: '#6b7280' }}
-              stroke="#e5e7eb"
-            />
-            {showTooltip && (
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={{ stroke: color, strokeWidth: 2, strokeDasharray: '5 5' }}
-                active={true}
-                defaultIndex={middleIndex}
-                isAnimationActive={false}
+        {showDataSkeleton ? (
+          <Skeleton width="100%" height={height || 200} />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis
+                dataKey="name"
+                tick={axisTickStyle}
+                stroke="#e5e7eb"
               />
-            )}
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={color}
-              strokeWidth={2}
-              dot={{ fill: color, r: 4 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+              <YAxis
+                tick={axisTickStyle}
+                stroke="#e5e7eb"
+              />
+              {showTooltip && !showTextSkeleton && (
+                <Tooltip
+                  content={<CustomTooltip />}
+                  cursor={{ stroke: chartColor, strokeWidth: 2, strokeDasharray: '5 5' }}
+                  active={true}
+                  defaultIndex={middleIndex}
+                  isAnimationActive={false}
+                />
+              )}
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={chartColor}
+                strokeWidth={2}
+                dot={{ fill: chartColor, r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

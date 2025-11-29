@@ -2,7 +2,7 @@
  * API Helper Functions for Dashboard Management
  */
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = '/api';
 
 /**
  * Fetch all saved dashboards
@@ -65,12 +65,13 @@ export async function deleteDashboard(id) {
  * @param {string} theme - Theme name
  * @param {string} appName - Application name
  * @param {string} appCategory - Application category
+ * @param {string} thumbnail - Base64 encoded thumbnail image
  * @returns {Promise<Object>} Saved dashboard object
  */
-export async function saveDashboard(name, dashboard, theme, appName, appCategory) {
-  console.log('saveDashboard called with:', { name, nameType: typeof name, nameLength: name?.length, theme, appName, appCategory });
-  const payload = { name, dashboard, theme, appName, appCategory };
-  console.log('Request payload:', JSON.stringify(payload, null, 2));
+export async function saveDashboard(name, dashboard, theme, appName, appCategory, thumbnail) {
+  console.log('saveDashboard called with:', { name, nameType: typeof name, nameLength: name?.length, theme, appName, appCategory, hasThumbnail: !!thumbnail });
+  const payload = { name, dashboard, theme, appName, appCategory, thumbnail };
+  console.log('Request payload:', JSON.stringify({ ...payload, thumbnail: thumbnail ? `${thumbnail.length} chars` : null }, null, 2));
 
   const response = await fetch(`${API_BASE_URL}/dashboards`, {
     method: 'POST',
@@ -93,14 +94,15 @@ export async function saveDashboard(name, dashboard, theme, appName, appCategory
  * @param {string} theme - Theme name
  * @param {string} appName - Application name
  * @param {string} appCategory - Application category
+ * @param {string} thumbnail - Base64 encoded thumbnail image
  * @returns {Promise<Object>} Updated dashboard object
  */
-export async function updateDashboard(id, name, dashboard, theme, appName, appCategory) {
-  console.log('updateDashboard called with:', { id, name, theme, appName, appCategory });
+export async function updateDashboard(id, name, dashboard, theme, appName, appCategory, thumbnail) {
+  console.log('updateDashboard called with:', { id, name, theme, appName, appCategory, hasThumbnail: !!thumbnail });
   const response = await fetch(`${API_BASE_URL}/dashboards/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, dashboard, theme, appName, appCategory })
+    body: JSON.stringify({ name, dashboard, theme, appName, appCategory, thumbnail })
   });
   if (!response.ok) {
     const errorData = await response.json();

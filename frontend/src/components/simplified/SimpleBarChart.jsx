@@ -1,4 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Skeleton from '../Skeleton';
+import useThemeColor from '../../hooks/useThemeColor';
 
 const CustomTooltip = ({ active, payload }) => {
   if (!payload || !payload.length) return null;
@@ -15,7 +17,15 @@ const CustomTooltip = ({ active, payload }) => {
   );
 };
 
-export default function SimpleBarChart({ title, data, color = '#14b8a6', height, maxBars, showTooltip = true }) {
+export default function SimpleBarChart({ title, data, color, height, maxBars, showTooltip = true, skeleton = false }) {
+  const themeColor = useThemeColor();
+  const chartColor = color || themeColor;
+
+  // skeleton can be: false, 'title', 'semi', or 'full'
+  const showTitleSkeleton = skeleton === 'title' || skeleton === 'semi' || skeleton === 'full' || skeleton === true;
+  const showTextSkeleton = skeleton === 'semi' || skeleton === 'full';
+  const showDataSkeleton = skeleton === 'full';
+
   // Default data if none provided
   const defaultData = [
     { name: 'Day 1', value: 120 },
@@ -38,38 +48,49 @@ export default function SimpleBarChart({ title, data, color = '#14b8a6', height,
   // Always show tooltip for middle bar
   const middleIndex = Math.floor((chartData?.length || 0) / 2);
 
+  // In semi mode, hide axis labels (they are text describing data)
+  const axisTickStyle = showTextSkeleton
+    ? { fontSize: 0, fill: 'transparent' }
+    : { fontSize: 12, fill: '#6b7280' };
+
   return (
     <div className="simplified-widget">
-      <div className="widget-title">{title}</div>
+      <div className="widget-title">
+        {showTitleSkeleton ? <Skeleton width="60%" height="14px" /> : title}
+      </div>
       <div className="flex-1 mt-4" style={{ minHeight: height ? `${height}px` : '200px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 12, fill: '#6b7280' }}
-              stroke="#e5e7eb"
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: '#6b7280' }}
-              stroke="#e5e7eb"
-            />
-            {showTooltip && (
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={{ fill: 'rgba(20, 184, 166, 0.1)' }}
-                active={true}
-                defaultIndex={middleIndex}
-                isAnimationActive={false}
+        {showDataSkeleton ? (
+          <Skeleton width="100%" height={height || 200} />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis
+                dataKey="name"
+                tick={axisTickStyle}
+                stroke="#e5e7eb"
               />
-            )}
-            <Bar
-              dataKey="value"
-              fill={color}
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
+              <YAxis
+                tick={axisTickStyle}
+                stroke="#e5e7eb"
+              />
+              {showTooltip && !showTextSkeleton && (
+                <Tooltip
+                  content={<CustomTooltip />}
+                  cursor={{ fill: `${chartColor}1A` }}
+                  active={true}
+                  defaultIndex={middleIndex}
+                  isAnimationActive={false}
+                />
+              )}
+              <Bar
+                dataKey="value"
+                fill={chartColor}
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
