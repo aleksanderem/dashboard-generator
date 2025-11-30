@@ -17,10 +17,15 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
   const [appCategory, setAppCategory] = useState(urlParams?.appCategory || 'ad');
   const [customCategoryName, setCustomCategoryName] = useState('');
   const [customCategoryColor, setCustomCategoryColor] = useState('#138D8F');
-  // In render mode, hide sidebar and navbar
+  // Badge text and color from dashboard metadata (for API-generated dashboards)
+  const [badgeText, setBadgeText] = useState(null);
+  const [badgeColor, setBadgeColor] = useState(null);
+  // Render mode bypasses login but KEEPS navbar/sidebar visible (for PNG export)
   const isRenderMode = urlParams?.renderMode === true;
-  const [showSidebar, setShowSidebar] = useState(!isRenderMode);
-  const [showNavbar, setShowNavbar] = useState(!isRenderMode);
+  // Auto-export mode - automatically export PNG when dashboard loads (for API automation)
+  const isAutoExportMode = urlParams?.autoExport === true;
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [showNavbar, setShowNavbar] = useState(true);
   const [showSkeletonMode, setShowSkeletonMode] = useState(false);
   const [skeletonTitlesOnly, setSkeletonTitlesOnly] = useState(false);
   const [showComponentLibrary, setShowComponentLibrary] = useState(false);
@@ -49,6 +54,7 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
   const [showLayoutModal, setShowLayoutModal] = useState(false);
   const [userPreferences, setUserPreferences] = useState(null);
   const [settingsTab, setSettingsTab] = useState('general'); // 'general', 'widgets', 'display', 'badges', 'heights'
+  const [autoExportDone, setAutoExportDone] = useState(false); // Track if auto-export has been triggered
 
   // Default min height settings (value in grid rows, 7 rows ≈ 306px)
   const defaultMinHeightSettings = {
@@ -266,12 +272,37 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
         console.log('Loading appCategory from dashboard metadata:', dashboardData.metadata.appCategory);
         setAppCategory(dashboardData.metadata.appCategory);
       }
+      // Load badge text and color from metadata (API-generated dashboards)
+      if (dashboardData.metadata?.badgeText) {
+        console.log('Loading badgeText from dashboard metadata:', dashboardData.metadata.badgeText);
+        setBadgeText(dashboardData.metadata.badgeText);
+      }
+      if (dashboardData.metadata?.badgeColor) {
+        console.log('Loading badgeColor from dashboard metadata:', dashboardData.metadata.badgeColor);
+        setBadgeColor(dashboardData.metadata.badgeColor);
+      }
+      // Load skeleton mode from metadata (API-generated dashboards)
+      if (dashboardData.metadata?.skeletonMode !== undefined) {
+        console.log('Loading skeletonMode from dashboard metadata:', dashboardData.metadata.skeletonMode);
+        setShowSkeletonMode(dashboardData.metadata.skeletonMode);
+      }
+      if (dashboardData.metadata?.skeletonTitlesOnly !== undefined) {
+        console.log('Loading skeletonTitlesOnly from dashboard metadata:', dashboardData.metadata.skeletonTitlesOnly);
+        setSkeletonTitlesOnly(dashboardData.metadata.skeletonTitlesOnly);
+      }
     }
   }, [dashboardData, minHeightSettings]);
 
   useEffect(() => {
-    // Handle custom themes from user preferences
-    if (theme && theme.startsWith('custom-') && userPreferences?.customThemes) {
+    // Handle theme as object (custom theme from database)
+    if (theme && typeof theme === 'object' && theme.primary) {
+      console.log('[DashboardPreview] Applying custom theme object:', theme);
+      applyTheme(theme.name || 'custom', theme);
+      return;
+    }
+
+    // Handle custom themes from user preferences (custom-N format)
+    if (theme && typeof theme === 'string' && theme.startsWith('custom-') && userPreferences?.customThemes) {
       const themeIndex = parseInt(theme.replace('custom-', ''), 10);
       const customTheme = userPreferences.customThemes[themeIndex];
       if (customTheme) {
@@ -279,6 +310,8 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
         return;
       }
     }
+
+    // Apply standard theme by name
     applyTheme(theme);
   }, [theme, userPreferences]);
 
@@ -409,14 +442,55 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
         backgroundColor: '#f9fafb',
       });
 
+      // Download the PNG
       const link = document.createElement('a');
       link.download = `dashboard-${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
+
+      // If dashboard is saved, also update it on the server
+      if (dashboardId) {
+        try {
+          const response = await fetch(`/api/dashboards/${dashboardId}/export-png`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageData: dataUrl,
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log('Dashboard thumbnail updated:', result);
+          } else {
+            console.error('Failed to update dashboard thumbnail');
+          }
+        } catch (uploadError) {
+          console.error('Failed to upload PNG to server:', uploadError);
+        }
+      }
     } catch (error) {
       console.error('Failed to export PNG:', error);
     }
   };
+
+  // Auto-export effect: automatically export PNG when autoExport=true in URL
+  useEffect(() => {
+    if (isAutoExportMode && !autoExportDone && layout.length > 0 && savedDashboardId) {
+      console.log('[AutoExport] Auto-export mode detected, scheduling export...');
+      // Wait for charts to render before exporting
+      const timer = setTimeout(async () => {
+        console.log('[AutoExport] Starting automatic PNG export...');
+        setAutoExportDone(true);
+        await handleExportPNG();
+        console.log('[AutoExport] Export completed');
+      }, 3000); // 3 second delay for charts to render
+
+      return () => clearTimeout(timer);
+    }
+  }, [isAutoExportMode, autoExportDone, layout, savedDashboardId]);
 
   const getDashboardJson = () => {
     return {
@@ -691,11 +765,11 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
     const isHovered = hoveredWidget === item.i;
 
     // Determine skeleton mode for this widget
-    // Priority: widget's skeletonMode prop > skeletonOverride > global skeletonTitlesOnly > global showSkeletonMode
+    // Priority: widget's skeleton prop > skeletonOverride > global skeletonTitlesOnly > global showSkeletonMode
     let widgetSkeletonMode;
-    if (widgetData.props?.skeletonMode && widgetData.props.skeletonMode !== 'none') {
+    if (widgetData.props?.skeleton && widgetData.props.skeleton !== 'none') {
       // Widget has specific skeleton mode from config ('title', 'semi', 'full')
-      widgetSkeletonMode = widgetData.props.skeletonMode;
+      widgetSkeletonMode = widgetData.props.skeleton;
     } else if (widgetData.props?.skeletonOverride !== undefined) {
       // Legacy: widget has skeleton override
       widgetSkeletonMode = widgetData.props.skeletonOverride ? 'semi' : false;
@@ -1340,16 +1414,20 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
                   <div
                     className="px-4 py-1.5 rounded text-white text-xs font-bold tracking-wide uppercase"
                     style={{
-                      background: appCategory === 'custom' && customCategoryColor
-                        ? `linear-gradient(to right, ${customCategoryColor}, ${customCategoryColor}dd)`
-                        : themes[appCategory]
-                          ? `linear-gradient(to right, ${themes[appCategory].primary}, ${themes[appCategory].primaryDark})`
-                          : 'linear-gradient(to right, #C92133, #991B1B)'
+                      background: badgeColor
+                        ? `linear-gradient(to right, ${badgeColor}, ${badgeColor}dd)`
+                        : appCategory === 'custom' && customCategoryColor
+                          ? `linear-gradient(to right, ${customCategoryColor}, ${customCategoryColor}dd)`
+                          : themes[appCategory]
+                            ? `linear-gradient(to right, ${themes[appCategory].primary}, ${themes[appCategory].primaryDark})`
+                            : 'linear-gradient(to right, #C92133, #991B1B)'
                     }}
                   >
-                    {appCategory === 'custom' && customCategoryName
-                      ? customCategoryName
-                      : themes[appCategory]?.name || appCategory.toUpperCase()}
+                    {badgeText
+                      ? badgeText
+                      : appCategory === 'custom' && customCategoryName
+                        ? customCategoryName
+                        : themes[appCategory]?.name || appCategory.toUpperCase()}
                   </div>
                   <div className="flex gap-2">
                     <div className="w-20 h-8 bg-gray-50"></div>
@@ -1360,7 +1438,7 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
             </div>
           )}
 
-          <div className={isRenderMode ? "" : "flex min-h-[700px]"}>
+          <div className={isRenderMode ? "flex" : "flex min-h-[700px]"}>
             {/* Sidebar */}
             {showSidebar && (
               <div className="bg-white border-r border-gray-100 w-64 p-4 flex flex-col">
@@ -1458,7 +1536,7 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
                     layout={layout}
                     cols={12}
                     rowHeight={30}
-                    width={isRenderMode ? 1200 : (showSidebar ? 900 : 1164)}
+                    width={showSidebar ? 900 : 1164}
                     isDraggable={isEditMode}
                     isResizable={isEditMode}
                     onLayoutChange={handleLayoutChange}

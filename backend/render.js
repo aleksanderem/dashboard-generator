@@ -50,8 +50,36 @@ const themes = {
 
 /**
  * Get theme colors
+ * Supports:
+ * - Theme name (case-insensitive): "security", "Security", "SECURITY"
+ * - Custom theme object: { primary: "#FFCC24", primaryLight: "#FEF3C7", primaryDark: "#EAB308" }
+ * - JSON string of custom theme: '{"name":"Security","primary":"#FFCC24",...}'
  */
-function getTheme(themeName) {
+function getTheme(themeNameOrConfig) {
+  let config = themeNameOrConfig;
+
+  // Try to parse JSON string (custom themes stored in database)
+  if (typeof config === 'string' && config.startsWith('{')) {
+    try {
+      config = JSON.parse(config);
+    } catch (e) {
+      // Not valid JSON, treat as theme name
+    }
+  }
+
+  // If it's a theme config object with colors
+  if (config && typeof config === 'object' && config.primary) {
+    return {
+      name: config.name || 'Custom',
+      primary: config.primary,
+      primaryLight: config.primaryLight || config.primary + '40',
+      primaryDark: config.primaryDark || config.primary,
+    };
+  }
+
+  // Convert to lowercase for lookup
+  const themeName = String(config || 'teal').toLowerCase();
+
   return themes[themeName] || themes.teal;
 }
 
@@ -749,6 +777,176 @@ export async function renderDashboard(dashboardData, options = {}) {
   } catch (error) {
     console.error('[Render] Error rendering dashboard:', error);
     throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
+ * Render dashboard by visiting the actual frontend URL
+ * This captures the dashboard exactly as it appears in the browser
+ * @param {string} url - The dashboard preview URL
+ * @param {Object} options - Rendering options
+ * @returns {Promise<Buffer>} PNG image buffer
+ */
+export async function renderDashboardFromUrl(url, options = {}) {
+  let browser = null;
+
+  try {
+    const {
+      width = 1920,
+      height = 1080,
+      waitTime = 3000,
+      selector = '#dashboard-grid',
+    } = options;
+
+    console.log(`[RenderURL] Starting render from URL: ${url}`);
+    console.log(`[RenderURL] Viewport: ${width}x${height}`);
+
+    // Launch browser
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const context = await browser.newContext({
+      viewport: { width, height },
+    });
+    const page = await context.newPage();
+
+    // Navigate to URL
+    await page.goto(url, {
+      waitUntil: 'networkidle',
+      timeout: 30000,
+    });
+
+    // Wait for dashboard grid to be visible
+    try {
+      await page.waitForSelector(selector, { timeout: 10000 });
+      console.log(`[RenderURL] Dashboard grid found`);
+    } catch {
+      console.warn(`[RenderURL] Selector ${selector} not found, taking full page screenshot`);
+    }
+
+    // Additional wait for animations/charts to render
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+
+    // Take screenshot of the dashboard grid element if it exists
+    let screenshot;
+    const element = await page.$(selector);
+
+    if (element) {
+      screenshot = await element.screenshot({
+        type: 'png',
+      });
+      console.log(`[RenderURL] ✓ Element screenshot captured`);
+    } else {
+      // Fallback to full page
+      screenshot = await page.screenshot({
+        type: 'png',
+        fullPage: false,
+        clip: { x: 0, y: 0, width, height },
+      });
+      console.log(`[RenderURL] ✓ Full page screenshot captured`);
+    }
+
+    console.log(`[RenderURL] ✓ Screenshot size: ${screenshot.length} bytes`);
+
+    return screenshot;
+
+  } catch (error) {
+    console.error('[RenderURL] Error:', error);
+    throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
+ * Render dashboard by using auto-export mode in the frontend.
+ * The URL includes ?autoExport=true which triggers automatic PNG export
+ * on the frontend side using html-to-image (same as the Export PNG button).
+ *
+ * @param {string} url - The dashboard preview URL (e.g., https://dashboards.tytan.kolabogroup.pl/?id=26&render=true&autoExport=true)
+ * @param {number} dashboardId - The dashboard ID (for waiting on export API response)
+ * @param {Object} options - Rendering options
+ * @returns {Promise<{success: boolean, message: string}>} Result of the export
+ */
+export async function renderDashboardByClickingExport(url, dashboardId, options = {}) {
+  let browser = null;
+
+  try {
+    const {
+      width = 1920,
+      height = 1080,
+    } = options;
+
+    // Add autoExport=true to URL if not present
+    const exportUrl = url.includes('autoExport=true') ? url : `${url}&autoExport=true`;
+
+    console.log(`[RenderByExport] Starting auto-export render for dashboard ${dashboardId}`);
+    console.log(`[RenderByExport] URL: ${exportUrl}`);
+    console.log(`[RenderByExport] Viewport: ${width}x${height}`);
+
+    // Launch browser
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const context = await browser.newContext({
+      viewport: { width, height },
+    });
+    const page = await context.newPage();
+
+    // Set up listener for the export-png API call BEFORE navigating
+    const exportPromise = page.waitForResponse(
+      response => response.url().includes(`/api/dashboards/${dashboardId}/export-png`) && response.status() === 200,
+      { timeout: 60000 }
+    );
+
+    // Navigate to URL (with autoExport=true, frontend will auto-export after 3 seconds)
+    console.log(`[RenderByExport] Navigating to dashboard with autoExport=true...`);
+    await page.goto(exportUrl, {
+      waitUntil: 'networkidle',
+      timeout: 60000,
+    });
+
+    // Wait for dashboard grid to be visible
+    try {
+      await page.waitForSelector('#dashboard-grid', { timeout: 15000 });
+      console.log(`[RenderByExport] Dashboard grid loaded`);
+    } catch {
+      console.warn(`[RenderByExport] Dashboard grid not found, continuing anyway...`);
+    }
+
+    // Wait for the export API to complete (triggered automatically by frontend)
+    console.log(`[RenderByExport] Waiting for auto-export API response...`);
+    const exportResponse = await exportPromise;
+    const exportResult = await exportResponse.json();
+
+    console.log(`[RenderByExport] ✓ Auto-export completed successfully`);
+    console.log(`[RenderByExport] Filename: ${exportResult.filename}`);
+    console.log(`[RenderByExport] Size: ${exportResult.fileSize} bytes`);
+
+    return {
+      success: true,
+      message: 'Dashboard exported successfully',
+      filename: exportResult.filename,
+      filePath: exportResult.filePath,
+      fileSize: exportResult.fileSize,
+    };
+
+  } catch (error) {
+    console.error('[RenderByExport] Error:', error);
+    return {
+      success: false,
+      message: error.message,
+    };
   } finally {
     if (browser) {
       await browser.close();

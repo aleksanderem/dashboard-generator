@@ -140,7 +140,19 @@ function App() {
       };
 
       setDashboardData(dashboardDataWithMetadata);
-      setSelectedTheme(dashboard.theme || dashboard.dashboard?.theme || 'teal');
+
+      // Handle theme - parse JSON string if it's a custom theme object
+      let themeValue = dashboard.theme || dashboard.dashboard?.theme || 'teal';
+      if (typeof themeValue === 'string' && themeValue.startsWith('{')) {
+        try {
+          themeValue = JSON.parse(themeValue);
+          console.log('[APP] Parsed custom theme:', themeValue);
+        } catch (e) {
+          console.warn('[APP] Failed to parse theme JSON:', e);
+        }
+      }
+      setSelectedTheme(themeValue);
+
       setLoadedDashboardId(dashboard._id || dashboardId); // Store the dashboard ID
       setLoadedDashboardName(dashboard.name || null); // Store the dashboard name
       setCurrentView('preview');
@@ -176,11 +188,12 @@ function App() {
     const skeleton = searchParams.get('skeleton');
     const skeletonMode = skeleton === 'true';
     const renderMode = searchParams.get('render') === 'true';
+    const autoExport = searchParams.get('autoExport') === 'true';
 
-    console.log('[APP] URL Parameters:', { theme, appName, appCategory, id, skeletonMode, renderMode });
+    console.log('[APP] URL Parameters:', { theme, appName, appCategory, id, skeletonMode, renderMode, autoExport });
 
     // Store URL params
-    const params = { theme, appName, appCategory, id, skeletonMode, renderMode };
+    const params = { theme, appName, appCategory, id, skeletonMode, renderMode, autoExport };
     setUrlParams(params);
 
     // Apply theme if provided

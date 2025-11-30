@@ -2,18 +2,32 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { analyzeDashboard } from './claude-analyzer.js';
 import { mapWidgets } from './widget-mapper.js';
 import { generateLayout } from './layout-generator.js';
 import { createDashboard, getAllDashboards, getDashboardById, updateDashboard, deleteDashboard, getWidgetConfigs, saveAllWidgetConfigs, getDefaultWidgetConfigs, loginByEmail, getSessionByKey, getUserPreferences, saveUserPreferences } from './database.js';
-import { renderDashboard } from './render.js';
+import { renderDashboard, renderDashboardFromUrl, renderDashboardByClickingExport } from './render.js';
 import { createSession, validateSession, getActiveSessionsCount } from './session-manager.js';
 import { generateRandomDashboard, getLayoutPresets, getWidgetConfig, generateBinPackedDashboard } from './random-generator.js';
+
+// Get directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Exports directory for PNG files
+const EXPORTS_DIR = path.join(__dirname, 'exports');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Frontend URL for server-side rendering (Playwright)
+// This should point to where the React frontend is accessible
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://dashboards.tytan.kolabogroup.pl';
 
 // Configure multer for image uploads (in-memory storage)
 const storage = multer.memoryStorage();
@@ -367,6 +381,121 @@ app.get('/api/dashboards/:id/thumbnail.png', async (req, res) => {
   } catch (error) {
     console.error('[THUMBNAIL PNG] Error:', error);
     res.status(500).send('Failed to get thumbnail');
+  }
+});
+
+// POST /api/dashboards/:id/export-png - Save exported PNG and update dashboard
+app.post('/api/dashboards/:id/export-png', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+
+    if (isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid dashboard ID',
+      });
+    }
+
+    const dashboard = getDashboardById(id);
+    if (!dashboard) {
+      return res.status(404).json({
+        success: false,
+        error: 'Dashboard not found',
+      });
+    }
+
+    const { imageData } = req.body;
+
+    if (!imageData) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing imageData (base64 PNG)',
+      });
+    }
+
+    // Extract base64 data from data URL if present
+    let base64Data = imageData;
+    if (imageData.startsWith('data:image/png;base64,')) {
+      base64Data = imageData.replace(/^data:image\/png;base64,/, '');
+    }
+
+    // Ensure exports directory exists
+    if (!fs.existsSync(EXPORTS_DIR)) {
+      fs.mkdirSync(EXPORTS_DIR, { recursive: true });
+    }
+
+    // Generate filename with timestamp
+    const timestamp = Date.now();
+    const filename = `dashboard-${id}-${timestamp}.png`;
+    const filePath = path.join(EXPORTS_DIR, filename);
+
+    // Save PNG file
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(filePath, imageBuffer);
+
+    console.log(`[Export PNG] ✓ Saved: ${filename} (${imageBuffer.length} bytes)`);
+
+    // Update dashboard with the new thumbnail (store as data URL for consistency)
+    const thumbnailDataUrl = `data:image/png;base64,${base64Data}`;
+
+    const updatedDashboard = updateDashboard(
+      id,
+      dashboard.name,
+      dashboard.dashboard,
+      dashboard.theme,
+      dashboard.appName,
+      dashboard.appCategory,
+      thumbnailDataUrl
+    );
+
+    // Build URLs from request
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
+
+    res.json({
+      success: true,
+      message: 'PNG exported and dashboard updated',
+      dashboardId: id,
+      filename,
+      filePath: `/api/dashboards/${id}/export/${filename}`,
+      thumbnailUrl: `${baseUrl}/api/dashboards/${id}/thumbnail.png`,
+      fileSize: imageBuffer.length,
+    });
+
+  } catch (error) {
+    console.error('[Export PNG] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to export PNG',
+      message: error.message,
+    });
+  }
+});
+
+// GET /api/dashboards/:id/export/:filename - Serve exported PNG file
+app.get('/api/dashboards/:id/export/:filename', (req, res) => {
+  try {
+    const { id, filename } = req.params;
+
+    // Security: validate filename format
+    if (!filename.match(/^dashboard-\d+-\d+\.png$/)) {
+      return res.status(400).send('Invalid filename format');
+    }
+
+    const filePath = path.join(EXPORTS_DIR, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send('File not found');
+    }
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    res.sendFile(filePath);
+
+  } catch (error) {
+    console.error('[Export File] Error:', error);
+    res.status(500).send('Failed to serve file');
   }
 });
 
@@ -925,6 +1054,244 @@ app.post('/api/generate', requireSession, (req, res) => {
     console.error('Error generating dashboard:', error);
     res.status(500).json({
       error: 'Failed to generate dashboard',
+      message: error.message,
+    });
+  }
+});
+
+// ========== External API: Generate and Save Dashboard ==========
+
+/**
+ * POST /api/generate-and-save
+ *
+ * Generates a dashboard from preset and saves it in one call.
+ * Designed for external systems (automation, integrations).
+ *
+ * Required parameters:
+ * - email: User email (creates session if not exists)
+ * - preset: Layout preset ID ("2+2", "3+3", "3+1", etc.)
+ * - name: Dashboard name
+ *
+ * Optional parameters:
+ * - theme: Theme name ("security", "itsm", "monitoring", "ad", "uem", "teal") or color object
+ * - badgeText: Badge text to display
+ * - badgeColor: Badge color (hex)
+ * - skeletonTitlesOnly: Show skeleton only on titles (true/false)
+ * - skeletonMode: Show full skeleton mode (true/false)
+ * - appName: Application name
+ * - appCategory: Application category
+ *
+ * Returns:
+ * - dashboardId: ID of saved dashboard
+ * - renderUrl: URL to render the dashboard as PNG
+ * - previewUrl: URL to view the dashboard in UI
+ * - sessionKey: Session key for this user
+ */
+app.post('/api/generate-and-save', async (req, res) => {
+  try {
+    const {
+      email,
+      preset,
+      name,
+      theme: themeParam,        // Direct theme parameter
+      themeName,                // Alternative parameter name
+      badgeText,
+      badgeColor,
+      skeletonTitlesOnly = false,
+      skeletonMode = false,
+      appName,
+      appCategory,
+    } = req.body;
+
+    // Accept both 'theme' and 'themeName' parameters
+    const theme = themeParam || themeName || 'teal';
+
+    // Validate required fields
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: email',
+      });
+    }
+
+    if (!preset) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: preset (e.g., "2+2", "3+3")',
+      });
+    }
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: name',
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format',
+      });
+    }
+
+    // Get or create session by email
+    const session = loginByEmail(email);
+    const sessionKey = session.session_key;
+
+    console.log(`[Generate-and-Save] User: ${email} (${session.is_new ? 'new' : 'existing'})`);
+
+    // Get user preferences (customThemes, customBadges, minHeightSettings, etc.)
+    const userPreferences = getUserPreferences(sessionKey);
+
+    // Get widget config for this session
+    const sessionWidgetConfig = getWidgetConfigs(sessionKey);
+
+    // Apply user preferences for badge
+    const effectiveBadgeText = badgeText || userPreferences?.defaultBadgeText || 'Dashboard';
+    const effectiveBadgeColor = badgeColor || '#14B8A6';
+
+    // Resolve theme - check if it's a custom theme from user preferences
+    let effectiveTheme = theme;
+    let customThemeConfig = null;
+
+    if (userPreferences?.customThemes && Array.isArray(userPreferences.customThemes)) {
+      const customTheme = userPreferences.customThemes.find(
+        t => t.name.toLowerCase() === theme.toLowerCase()
+      );
+      if (customTheme) {
+        customThemeConfig = customTheme;
+        effectiveTheme = theme; // Keep the name for reference
+      }
+    }
+
+    console.log(`[Generate-and-Save] Preset: ${preset}, Theme: ${effectiveTheme}, Name: "${name}"`);
+    console.log(`[Generate-and-Save] Badge: "${effectiveBadgeText}" (${effectiveBadgeColor}), CustomTheme: ${customThemeConfig ? 'yes' : 'no'}`);
+
+    // Determine skeleton mode for widgets
+    let widgetSkeletonMode = 'none';
+    if (skeletonMode) {
+      widgetSkeletonMode = 'semi';
+    } else if (skeletonTitlesOnly) {
+      widgetSkeletonMode = 'title';
+    }
+
+    // Override skeleton mode in widget config
+    const modifiedWidgetConfig = {};
+    for (const [widgetType, config] of Object.entries(sessionWidgetConfig)) {
+      modifiedWidgetConfig[widgetType] = {
+        ...config,
+        skeletonMode: widgetSkeletonMode,
+      };
+    }
+
+    // Generate dashboard
+    const dashboard = generateRandomDashboard(preset, 1, modifiedWidgetConfig);
+
+    if (!dashboard) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid preset: ${preset}. Available presets: ${Object.keys(getLayoutPresets()).join(', ')}`,
+      });
+    }
+
+    // Add metadata (with effective values from user preferences)
+    dashboard.metadata = {
+      ...dashboard.metadata,
+      generatedAt: new Date().toISOString(),
+      preset,
+      skeletonTitlesOnly,
+      skeletonMode,
+      badgeText: effectiveBadgeText,
+      badgeColor: effectiveBadgeColor,
+      // Include custom theme config if using a custom theme
+      ...(customThemeConfig && { customTheme: customThemeConfig }),
+      // Include minHeightSettings from user preferences
+      ...(userPreferences?.minHeightSettings && { minHeightSettings: userPreferences.minHeightSettings }),
+    };
+
+    console.log(`[Generate-and-Save] Applied user settings: minHeightSettings=${userPreferences?.minHeightSettings ? 'yes' : 'no'}, widgetConfigs=${Object.keys(sessionWidgetConfig).length} types`);
+
+    // Save dashboard (initially without thumbnail)
+    // For custom themes, save the full theme config object as JSON; for built-in themes, save just the name
+    const themeToSave = customThemeConfig
+      ? JSON.stringify(customThemeConfig)  // Custom theme as JSON string
+      : effectiveTheme;                     // Built-in theme as name string
+    const savedDashboard = createDashboard(
+      name,
+      dashboard,
+      themeToSave,
+      appName || name,
+      appCategory || 'custom',
+      null // No thumbnail yet
+    );
+
+    const dashboardId = savedDashboard._id;
+
+    // Build URLs from request
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
+
+    console.log(`[Generate-and-Save] ✓ Dashboard saved: ID=${dashboardId}`);
+
+    // Build preview URL for rendering (with render=true to bypass login)
+    // Use FRONTEND_URL for Playwright rendering (not baseUrl which may be localhost)
+    const previewUrl = `${FRONTEND_URL}/?id=${dashboardId}&render=true`;
+
+    // Automatically render PNG by clicking Export PNG button in UI
+    // This uses the exact same rendering as the frontend (html-to-image)
+    let pngExportResult = null;
+
+    try {
+      console.log(`[Generate-and-Save] Starting automatic PNG render via Export PNG button...`);
+
+      pngExportResult = await renderDashboardByClickingExport(previewUrl, dashboardId, {
+        width: 1920,
+        height: 1080,
+        waitTime: 3000,
+      });
+
+      if (pngExportResult.success) {
+        console.log(`[Generate-and-Save] ✓ PNG exported: ${pngExportResult.filename} (${pngExportResult.fileSize} bytes)`);
+      } else {
+        console.warn(`[Generate-and-Save] Export PNG button method failed: ${pngExportResult.message}`);
+      }
+
+    } catch (renderError) {
+      console.error('[Generate-and-Save] PNG render failed (dashboard still saved):', renderError.message);
+      pngExportResult = { success: false, message: renderError.message };
+    }
+
+    res.json({
+      success: true,
+      dashboardId,
+      sessionKey,
+      email,
+      renderUrl: `${baseUrl}/api/dashboards/${dashboardId}/render.png`,
+      thumbnailUrl: `${baseUrl}/api/dashboards/${dashboardId}/thumbnail.png`,
+      previewUrl,
+      apiUrl: `${baseUrl}/api/dashboards/${dashboardId}`,
+      pngExport: pngExportResult?.success ? {
+        filename: pngExportResult.filename,
+        filePath: `${baseUrl}${pngExportResult.filePath}`,
+        fileSize: pngExportResult.fileSize,
+      } : null,
+      dashboard: {
+        name: savedDashboard.name,
+        theme,
+        widgetCount: dashboard.widgets?.length || 0,
+        preset,
+      },
+    });
+
+  } catch (error) {
+    console.error('[Generate-and-Save] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate and save dashboard',
       message: error.message,
     });
   }
