@@ -1114,11 +1114,12 @@ app.post('/api/generate-and-save', async (req, res) => {
       });
     }
 
-    if (!preset) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required field: preset (e.g., "2+2", "3+3")',
-      });
+    // If no preset provided, randomly select one for better widget variety
+    let effectivePreset = preset;
+    if (!effectivePreset) {
+      const availablePresets = Object.keys(getLayoutPresets());
+      effectivePreset = availablePresets[Math.floor(Math.random() * availablePresets.length)];
+      console.log(`[Generate-and-Save] No preset provided, randomly selected: ${effectivePreset}`);
     }
 
     if (!name) {
@@ -1167,7 +1168,7 @@ app.post('/api/generate-and-save', async (req, res) => {
       }
     }
 
-    console.log(`[Generate-and-Save] Preset: ${preset}, Theme: ${effectiveTheme}, Name: "${name}"`);
+    console.log(`[Generate-and-Save] Preset: ${effectivePreset}, Theme: ${effectiveTheme}, Name: "${name}"`);
     console.log(`[Generate-and-Save] Badge: "${effectiveBadgeText}" (${effectiveBadgeColor}), CustomTheme: ${customThemeConfig ? 'yes' : 'no'}`);
 
     // Determine skeleton mode for widgets
@@ -1188,12 +1189,12 @@ app.post('/api/generate-and-save', async (req, res) => {
     }
 
     // Generate dashboard
-    const dashboard = generateRandomDashboard(preset, 1, modifiedWidgetConfig);
+    const dashboard = generateRandomDashboard(effectivePreset, 1, modifiedWidgetConfig);
 
     if (!dashboard) {
       return res.status(400).json({
         success: false,
-        error: `Invalid preset: ${preset}. Available presets: ${Object.keys(getLayoutPresets()).join(', ')}`,
+        error: `Invalid preset: ${effectivePreset}. Available presets: ${Object.keys(getLayoutPresets()).join(', ')}`,
       });
     }
 
@@ -1201,7 +1202,7 @@ app.post('/api/generate-and-save', async (req, res) => {
     dashboard.metadata = {
       ...dashboard.metadata,
       generatedAt: new Date().toISOString(),
-      preset,
+      preset: effectivePreset,
       skeletonTitlesOnly,
       skeletonMode,
       badgeText: effectiveBadgeText,
@@ -1283,7 +1284,7 @@ app.post('/api/generate-and-save', async (req, res) => {
         name: savedDashboard.name,
         theme,
         widgetCount: dashboard.widgets?.length || 0,
-        preset,
+        preset: effectivePreset,
       },
     });
 

@@ -37,8 +37,8 @@ curl -X POST "https://dashboards.tytan.kolabogroup.pl/api/generate-and-save" \
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `email` | string | Yes | User email for session management |
-| `preset` | string | Yes | Layout preset: `"2+2"`, `"3+3"`, `"4+4"`, `"2+2+2"`, `"3+3+3"`, `"1+2"`, `"2+1"`, `"1+2+1"` |
-| `name` | string | No | Dashboard name (default: auto-generated) |
+| `preset` | string | No | Layout preset (if not provided, randomly selected). See Layout Presets section. |
+| `name` | string | Yes | Dashboard name |
 | `theme` or `themeName` | string | No | Theme name: `"teal"`, `"Security"`, `"ITSM"`, `"Monitoring"`, `"AD"`, `"UEM"` |
 | `badgeText` | string | No | Custom badge text (overrides category) |
 | `badgeColor` | string | No | Custom badge color (hex, e.g. `"#FFCC24"`) |
@@ -184,11 +184,15 @@ curl -X DELETE "https://dashboards.tytan.kolabogroup.pl/api/dashboards/34"
 | `2+2` | 2 rows, 2 columns | 4 |
 | `3+3` | 2 rows, 3 columns | 6 |
 | `4+4` | 2 rows, 4 columns | 8 |
-| `2+2+2` | 3 rows, 2 columns | 6 |
-| `3+3+3` | 3 rows, 3 columns | 9 |
-| `1+2` | 1 top, 2 bottom | 3 |
-| `2+1` | 2 top, 1 bottom | 3 |
+| `3+1` | 3 top, 1 bottom | 4 |
+| `1+3` | 1 top, 3 bottom | 4 |
+| `2+3+2` | 3 rows (2, 3, 2 columns) | 7 |
+| `4+2` | 4 top, 2 bottom | 6 |
+| `2+4` | 2 top, 4 bottom | 6 |
 | `1+2+1` | 1 top, 2 middle, 1 bottom | 4 |
+| `3` | Single row, 3 columns | 3 |
+| `4` | Single row, 4 columns | 4 |
+| `6` | 2 rows, 3 columns (alias for 3+3) | 6 |
 
 ---
 
@@ -252,3 +256,4 @@ curl -X POST "https://dashboards.tytan.kolabogroup.pl/api/generate-and-save" \
 - Fixed skeleton mode not being applied from API
 - Fixed layout bug in render mode (sidebar + content flex layout)
 - Added `autoExport` URL parameter for automatic PNG generation
+- Made `preset` parameter optional - randomly selected when not provided
