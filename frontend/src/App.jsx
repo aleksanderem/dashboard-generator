@@ -288,6 +288,7 @@ function App() {
                   Saved
                 </span>
               </button>
+              {/* Upload tab temporarily disabled
               <button
                 onClick={() => setCurrentView('upload')}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -301,6 +302,7 @@ function App() {
                   Upload
                 </span>
               </button>
+              */}
             </nav>
 
             {/* Right side - hamburger menu */}
@@ -480,6 +482,7 @@ function App() {
           </div>
         )}
 
+        {/* Upload view temporarily disabled
         {currentView === 'upload' && (
           <ScreenshotUploader
             onAnalysisComplete={handleAnalysisComplete}
@@ -488,6 +491,7 @@ function App() {
             setIsAnalyzing={setIsAnalyzing}
           />
         )}
+        */}
 
         {currentView === 'saved' && (
           <SavedDashboards
