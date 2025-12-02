@@ -3,7 +3,7 @@ import ScreenshotUploader from './components/ScreenshotUploader';
 import DashboardPreview from './components/DashboardPreview';
 import SavedDashboards from './components/SavedDashboards';
 import LoginScreen from './components/LoginScreen';
-import { Upload, Database, Wrench, Key, LogOut, Copy, Check, Menu, X, BookOpen, Settings } from 'lucide-react';
+import { Upload, Database, Wrench, Key, LogOut, Copy, Check, Menu, X, BookOpen, Settings, FileJson, AlertCircle } from 'lucide-react';
 import { fetchDashboardById } from './utils/api';
 import { isLoggedIn, getSession, clearSession } from './utils/sessionManager';
 
@@ -24,6 +24,11 @@ function App() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const [initialEditMode, setInitialEditMode] = useState(false);
+
+  // Import JSON state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importJsonText, setImportJsonText] = useState('');
+  const [importError, setImportError] = useState(null);
 
   const handleLoginSuccess = (sessionData) => {
     setSession(sessionData);
@@ -176,6 +181,61 @@ function App() {
     setCurrentView('create');
   };
 
+  // Handle JSON import
+  const handleImportJson = () => {
+    setImportError(null);
+
+    if (!importJsonText.trim()) {
+      setImportError('Please paste JSON data');
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(importJsonText);
+
+      // Validate required fields
+      if (!parsed.gridLayout || !Array.isArray(parsed.gridLayout)) {
+        setImportError('Invalid JSON: missing gridLayout array');
+        return;
+      }
+
+      // Build dashboard data structure
+      const importedDashboard = {
+        layout: {
+          columns: parsed.layout?.columns || 20,
+          rows: parsed.layout?.rows || 30
+        },
+        theme: parsed.theme || 'teal',
+        metadata: {
+          appName: parsed.appName,
+          appCategory: parsed.appCategory,
+          ...parsed.metadata
+        },
+        gridLayout: parsed.gridLayout,
+        widgets: parsed.widgets || parsed.gridLayout.map(item => ({
+          id: item.i,
+          component: item.component,
+          props: item.props
+        }))
+      };
+
+      // Set the dashboard data
+      setDashboardData(importedDashboard);
+      setSelectedTheme(parsed.theme || 'teal');
+      setLoadedDashboardId(null);
+      setLoadedDashboardName(parsed.name || 'Imported Dashboard');
+      setInitialEditMode(true);
+      setCurrentView('preview');
+      setShowImportModal(false);
+      setImportJsonText('');
+
+      console.log('[APP] Dashboard imported from JSON:', parsed.name);
+    } catch (err) {
+      console.error('[APP] JSON parse error:', err);
+      setImportError(`Invalid JSON: ${err.message}`);
+    }
+  };
+
   // Parse URL parameters on mount
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -286,6 +346,19 @@ function App() {
                 <span className="flex items-center gap-2">
                   <Database className="w-4 h-4" />
                   Saved
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowImportModal(true);
+                  setImportError(null);
+                  setImportJsonText('');
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-600 hover:text-gray-900"
+              >
+                <span className="flex items-center gap-2">
+                  <FileJson className="w-4 h-4" />
+                  Import
                 </span>
               </button>
               {/* Upload tab temporarily disabled
@@ -531,6 +604,58 @@ function App() {
           />
         )}
       </main>
+
+      {/* Import JSON Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl rounded-2xl">
+            <div className="px-6 py-5 flex items-center justify-between border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Import Dashboard from JSON</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Paste JSON exported from "Show JSON" to recreate a dashboard</p>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 transition-colors rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              {importError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">Import Error</p>
+                    <p className="text-sm text-red-600">{importError}</p>
+                  </div>
+                </div>
+              )}
+              <textarea
+                value={importJsonText}
+                onChange={(e) => setImportJsonText(e.target.value)}
+                placeholder='Paste your dashboard JSON here...\n\n{\n  "name": "My Dashboard",\n  "theme": "teal",\n  "gridLayout": [...]\n}'
+                className="w-full h-64 p-4 border border-gray-300 rounded-lg font-mono text-sm resize-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              />
+              <div className="mt-4 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="px-4 py-2.5 text-gray-700 hover:bg-gray-100 transition-colors text-sm font-medium rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportJson}
+                  className="px-4 py-2.5 bg-teal-600 text-white hover:bg-teal-700 transition-colors text-sm font-medium rounded-lg shadow-sm flex items-center gap-2"
+                >
+                  <FileJson className="w-4 h-4" />
+                  Import Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="mt-16 py-6 border-t border-gray-200">

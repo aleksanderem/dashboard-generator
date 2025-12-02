@@ -41,6 +41,7 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
   const [savedDashboardId, setSavedDashboardId] = useState(dashboardId || null);
   const [showLayoutSettingsModal, setShowLayoutSettingsModal] = useState(false);
   const [showJsonModal, setShowJsonModal] = useState(false);
+  const [jsonCopied, setJsonCopied] = useState(false);
   const [showApiModal, setShowApiModal] = useState(false);
   const [expandedEndpoints, setExpandedEndpoints] = useState({});
   const [showChartTooltips, setShowChartTooltips] = useState(true);
@@ -2985,17 +2986,40 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
               </button>
             </div>
             <div className="p-6 overflow-y-auto max-h-[calc(80vh-100px)]">
-              <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto border border-gray-100">
+              <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto border border-gray-100 max-h-96">
                 <code>{JSON.stringify(getDashboardJson(), null, 2)}</code>
               </pre>
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  Copy this JSON and use "Import JSON" to recreate this dashboard
+                </p>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(JSON.stringify(getDashboardJson(), null, 2));
+                    setJsonCopied(true);
+                    setTimeout(() => setJsonCopied(false), 2000);
                   }}
-                  className="px-4 py-2.5 bg-teal-600 text-white hover:bg-teal-700 transition-colors text-sm font-medium rounded-lg shadow-sm"
+                  className={`px-4 py-2.5 transition-colors text-sm font-medium rounded-lg shadow-sm flex items-center gap-2 ${
+                    jsonCopied
+                      ? 'bg-green-600 text-white'
+                      : 'bg-teal-600 text-white hover:bg-teal-700'
+                  }`}
                 >
-                  Copy to Clipboard
+                  {jsonCopied ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy to Clipboard
+                    </>
+                  )}
                 </button>
               </div>
             </div>
