@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { analyzeDashboard } from './claude-analyzer.js';
 import { mapWidgets } from './widget-mapper.js';
 import { generateLayout } from './layout-generator.js';
-import { createDashboard, getAllDashboards, getDashboardById, updateDashboard, deleteDashboard, getWidgetConfigs, saveAllWidgetConfigs, getDefaultWidgetConfigs, loginByEmail, getSessionByKey, getUserPreferences, saveUserPreferences } from './database.js';
+import { createDashboard, getAllDashboards, getDashboardsCount, getDashboardById, updateDashboard, deleteDashboard, getWidgetConfigs, saveAllWidgetConfigs, getDefaultWidgetConfigs, loginByEmail, getSessionByKey, getUserPreferences, saveUserPreferences } from './database.js';
 import { renderDashboard, renderDashboardFromUrl, renderDashboardByClickingExport } from './render.js';
 import { createSession, validateSession, getActiveSessionsCount } from './session-manager.js';
 import { generateRandomDashboard, getLayoutPresets, getWidgetConfig, generateBinPackedDashboard } from './random-generator.js';
@@ -232,15 +232,27 @@ app.post('/api/dashboards', async (req, res) => {
   }
 });
 
-// GET /api/dashboards - List all saved dashboards
+// GET /api/dashboards - List all saved dashboards (with optional pagination)
 app.get('/api/dashboards', async (req, res) => {
   try {
-    const dashboards = getAllDashboards();
-    console.log(`✓ Retrieved ${dashboards.length} dashboard(s)`);
+    // Parse pagination params (limit=0 means all, for backwards compatibility)
+    const limit = parseInt(req.query.limit, 10) || 0;
+    const offset = parseInt(req.query.offset, 10) || 0;
+
+    const dashboards = getAllDashboards(limit, offset);
+    const total = getDashboardsCount();
+
+    console.log(`✓ Retrieved ${dashboards.length} dashboard(s) (offset: ${offset}, limit: ${limit || 'all'}, total: ${total})`);
 
     res.json({
       success: true,
       dashboards,
+      pagination: {
+        total,
+        limit: limit || total,
+        offset,
+        hasMore: limit > 0 && offset + dashboards.length < total
+      }
     });
   } catch (error) {
     console.error('Error retrieving dashboards:', error);

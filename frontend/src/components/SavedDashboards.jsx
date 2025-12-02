@@ -3,12 +3,19 @@ import { Database, Loader2, Trash2, Eye, AlertCircle, ArrowLeft, Download, Copy,
 import { fetchDashboards, deleteDashboard, updateDashboard, fetchDashboardById } from '../utils/api';
 import JSZip from 'jszip';
 
+const PAGE_SIZE = 12; // Number of dashboards per page
+
 export default function SavedDashboards({ onLoadDashboard, onClose }) {
   const [dashboards, setDashboards] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  // Pagination state
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   // New states for enhanced features
   const [copiedId, setCopiedId] = useState(null);
@@ -28,12 +35,29 @@ export default function SavedDashboards({ onLoadDashboard, onClose }) {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchDashboards();
+      const { dashboards: data, pagination } = await fetchDashboards(PAGE_SIZE, 0);
       setDashboards(data);
+      setTotalCount(pagination.total);
+      setHasMore(pagination.hasMore);
     } catch (err) {
       setError(err.message || 'Failed to load dashboards');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMoreDashboards = async () => {
+    if (isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const { dashboards: data, pagination } = await fetchDashboards(PAGE_SIZE, dashboards.length);
+      setDashboards(prev => [...prev, ...data]);
+      setHasMore(pagination.hasMore);
+    } catch (err) {
+      setError(err.message || 'Failed to load more dashboards');
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -42,6 +66,7 @@ export default function SavedDashboards({ onLoadDashboard, onClose }) {
     try {
       await deleteDashboard(dashboardId);
       setDashboards(dashboards.filter(d => d._id !== dashboardId));
+      setTotalCount(prev => prev - 1);
       setConfirmDeleteId(null);
     } catch (err) {
       setError(err.message || 'Failed to delete dashboard');
@@ -372,7 +397,11 @@ export default function SavedDashboards({ onLoadDashboard, onClose }) {
           <Database className="w-8 h-8 text-teal-600" />
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Saved Dashboards</h2>
-            <p className="text-sm text-gray-500">{dashboards.length} dashboard{dashboards.length !== 1 ? 's' : ''} saved</p>
+            <p className="text-sm text-gray-500">
+              {dashboards.length === totalCount
+                ? `${totalCount} dashboard${totalCount !== 1 ? 's' : ''} saved`
+                : `Showing ${dashboards.length} of ${totalCount} dashboards`}
+            </p>
           </div>
         </div>
         <button
@@ -576,6 +605,28 @@ export default function SavedDashboards({ onLoadDashboard, onClose }) {
           </div>
         ))}
       </div>
+
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={loadMoreDashboards}
+            disabled={isLoadingMore}
+            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                Load More ({totalCount - dashboards.length} remaining)
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* API Examples Modal */}
       {apiModalId && (

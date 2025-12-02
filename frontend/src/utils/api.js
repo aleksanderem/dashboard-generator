@@ -5,14 +5,28 @@
 const API_BASE_URL = '/api';
 
 /**
- * Fetch all saved dashboards
- * @returns {Promise<Array>} Array of dashboard objects
+ * Fetch saved dashboards with optional pagination
+ * @param {number} limit - Maximum number of dashboards to return (0 = all)
+ * @param {number} offset - Number of dashboards to skip
+ * @returns {Promise<Object>} Object with dashboards array and pagination info
  */
-export async function fetchDashboards() {
-  const response = await fetch(`${API_BASE_URL}/dashboards`);
+export async function fetchDashboards(limit = 0, offset = 0) {
+  const params = new URLSearchParams();
+  if (limit > 0) params.append('limit', limit);
+  if (offset > 0) params.append('offset', offset);
+
+  const url = params.toString()
+    ? `${API_BASE_URL}/dashboards?${params}`
+    : `${API_BASE_URL}/dashboards`;
+
+  const response = await fetch(url);
   if (!response.ok) throw new Error('Failed to fetch dashboards');
   const data = await response.json();
-  return data.dashboards;
+
+  return {
+    dashboards: data.dashboards,
+    pagination: data.pagination
+  };
 }
 
 /**

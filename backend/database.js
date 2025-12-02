@@ -186,13 +186,38 @@ export function createDashboard(name, data, theme = 'custom', appName = null, ap
 }
 
 /**
- * Get all dashboards
- * @returns {array} Array of all dashboards
+ * Get total count of dashboards
+ * @returns {number} Total count of dashboards
  */
-export function getAllDashboards() {
+export function getDashboardsCount() {
   try {
-    const stmt = db.prepare('SELECT * FROM dashboards ORDER BY updated_at DESC');
-    const dashboards = stmt.all();
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM dashboards');
+    const result = stmt.get();
+    return result.count;
+  } catch (error) {
+    console.error('Error getting dashboards count:', error);
+    throw new Error(`Failed to get dashboards count: ${error.message}`);
+  }
+}
+
+/**
+ * Get all dashboards (with optional pagination)
+ * @param {number} limit - Maximum number of dashboards to return (0 = all)
+ * @param {number} offset - Number of dashboards to skip
+ * @returns {array} Array of dashboards
+ */
+export function getAllDashboards(limit = 0, offset = 0) {
+  try {
+    let query = 'SELECT * FROM dashboards ORDER BY updated_at DESC';
+    let params = [];
+
+    if (limit > 0) {
+      query += ' LIMIT ? OFFSET ?';
+      params = [limit, offset];
+    }
+
+    const stmt = db.prepare(query);
+    const dashboards = params.length > 0 ? stmt.all(...params) : stmt.all();
 
     // Parse JSON data for each dashboard and normalize field names
     return dashboards.map(dashboard => ({
