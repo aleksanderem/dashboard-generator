@@ -413,15 +413,13 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
       }
       if (settings.showSkeletonMode !== undefined) {
         setShowSkeletonMode(settings.showSkeletonMode);
-        if (onSkeletonModeChange) {
-          onSkeletonModeChange(settings.showSkeletonMode);
-        }
       }
       if (settings.showChartTooltips !== undefined) {
         setShowChartTooltips(settings.showChartTooltips);
       }
     }
-  }, [dashboardData?.metadata?.layoutSettings, onSkeletonModeChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardData?.metadata?.layoutSettings]);
 
   // Load widget configuration on mount
   useEffect(() => {
@@ -864,9 +862,6 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
   };
 
   const renderWidget = (item) => {
-    console.log('Rendering widget:', item);
-    console.log('Widget ID:', item.i);
-
     // Get widget data from map using item.i
     const widgetData = widgetDataMap[item.i];
 
