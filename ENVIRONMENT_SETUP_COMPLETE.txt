@@ -1,0 +1,145 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║            ŚRODOWISKO UŻYTKOWNIKA DASHBOARDS - SKONFIGUROWANE                ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+✅ KONFIGURACJA ZAKOŃCZONA
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔧 CO ZOSTAŁO SKONFIGUROWANE:
+
+1. NODE.JS & NPM
+   ──────────────
+   ✓ Node.js: v18.20.8
+   ✓ npm: 10.8.2
+   ✓ Dostępne globalnie dla użytkownika dashboards
+
+2. NPM GLOBAL PREFIX
+   ──────────────────
+   ✓ Katalog: ~/.npm-global
+   ✓ PATH skonfigurowany w ~/.profile i ~/.bashrc
+   ✓ Pakiety globalne instalowane bez sudo
+
+3. PM2 PROCESS MANAGER
+   ────────────────────
+   ✓ Wersja: 6.0.14
+   ✓ Zainstalowany w: ~/.npm-global/lib/node_modules/pm2
+   ✓ Dostępny w PATH
+   ✓ PM2 daemon uruchomiony
+   ✓ Konfiguracja zapisana (pm2 save)
+   ✓ Auto-start skonfigurowany (systemd)
+
+4. BACKEND URUCHOMIONY
+   ───────────────────
+   ✓ Proces: dashboard-generator-backend
+   ✓ Status: online
+   ✓ Port: 3001
+   ✓ Health check: OK (http://localhost:3001/api/health)
+   ✓ User: dashboards
+   ✓ PID: sprawdź przez 'pm2 list'
+
+5. UPRAWNIENIA
+   ────────────
+   ✓ Wszystkie pliki w ~/webapps/dashboards/dashboard-generator: dashboards:dashboards
+   ✓ Katalog uploads/: 755
+   ✓ Katalog logs/: 755
+   ✓ Plik .env: 600 (bezpieczny)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 DOSTĘPNE KOMENDY (jako użytkownik dashboards):
+
+# PM2 Management
+pm2 list                              # Lista procesów
+pm2 logs dashboard-generator-backend  # Logi backendu
+pm2 restart dashboard-generator-backend # Restart
+pm2 stop dashboard-generator-backend  # Stop
+pm2 start ecosystem.config.js         # Start z config
+pm2 monit                             # Monitoring w czasie rzeczywistym
+pm2 save                              # Zapisz listę procesów
+
+# Backend
+curl http://localhost:3001/api/health # Test backendu
+
+# Frontend rebuild (jeśli potrzebne)
+cd ~/webapps/dashboards/dashboard-generator/frontend
+npm run build
+
+# Instalacja globalnych pakietów npm (bez sudo!)
+npm install -g <package-name>
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 STATUS AKTUALNY:
+
+✅ Backend: ONLINE na porcie 3001
+✅ Frontend: ZBUDOWANY w dist/
+✅ PM2: URUCHOMIONY i zapisany
+✅ Auto-start: SKONFIGUROWANY (systemd)
+
+⚠️  Anthropic API: NIE SKONFIGUROWANY (możesz dodać później w backend/.env)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📍 NASTĘPNE KROKI - KONFIGURACJA RUNCLOUD:
+
+1. W RunCloud → Web Applications → Dodaj nową aplikację:
+   • Domain: dashboards.tytan.kolabogroup.pl
+   • Public Path: /home/dashboards/webapps/dashboards/dashboard-generator/frontend/dist
+   • Stack: Static HTML (wyłącz PHP)
+
+2. Settings → Nginx Config → Dodaj custom configuration:
+   Zobacz plik: nginx-config-snippet.conf
+
+3. Settings → SSL/TLS:
+   • Włącz Let's Encrypt SSL
+
+4. Test:
+   • https://dashboards.tytan.kolabogroup.pl
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📂 STRUKTURA KATALOGÓW:
+
+~/.npm-global/          # Globalne pakiety npm
+~/webapps/dashboards/dashboard-generator/
+  ├── backend/          # Node.js API (port 3001)
+  ├── frontend/dist/    # Statyczne pliki React
+  ├── logs/            # Logi PM2
+  ├── uploads/         # Uploadowane pliki
+  └── ecosystem.config.js  # Konfiguracja PM2
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔍 DEBUGOWANIE:
+
+# Sprawdź status PM2
+pm2 status
+
+# Sprawdź logi
+pm2 logs dashboard-generator-backend --lines 50
+
+# Sprawdź czy backend odpowiada
+curl http://localhost:3001/api/health
+
+# Sprawdź port 3001
+netstat -tlnp | grep 3001
+
+# Sprawdź uprawnienia
+ls -la ~/webapps/dashboards/dashboard-generator/
+
+# Sprawdź zmienne środowiskowe
+echo $PATH | grep npm-global
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ ŚRODOWISKO GOTOWE DO PRACY!
+
+Użytkownik: dashboards
+Home: /home/dashboards
+Node.js: v18.20.8
+PM2: 6.0.14 ✓
+Backend: ONLINE ✓
+Frontend: ZBUDOWANY ✓
+
+═══════════════════════════════════════════════════════════════════════════════

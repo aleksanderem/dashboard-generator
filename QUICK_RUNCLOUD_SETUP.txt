@@ -1,0 +1,73 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    DASHBOARD GENERATOR - RUNCLOUD SETUP                       ║
+║                   dashboards.tytan.kolabogroup.pl                             ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+✅ INSTALACJA ZAKOŃCZONA
+
+Co zostało zrobione:
+✓ Sklonowano repozytorium z GitHub
+✓ Zainstalowano zależności backendu (Node.js)
+✓ Zainstalowano zależności frontendu (React)
+✓ Zbudowano aplikację frontend (dist/)
+✓ Utworzono plik .env dla backendu
+✓ Utworzono konfigurację PM2 (ecosystem.config.js)
+✓ Utworzono katalogi: logs/, uploads/
+✓ Przygotowano snippet konfiguracji Nginx
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 CO MUSISZ ZROBIĆ W RUNCLOUD:
+
+1. WEB APPLICATION
+   ─────────────────
+   • Domain: dashboards.tytan.kolabogroup.pl
+   • Public Path: /home/dashboards/webapps/dashboards/dashboard-generator/frontend/dist
+   • PHP: Wyłączone (to aplikacja Node.js)
+
+2. NGINX CONFIG
+   ─────────────
+   Skopiuj zawartość pliku: nginx-config-snippet.conf
+   i dodaj w: Settings → Nginx Config → Custom Configuration
+
+   Lub zobacz szczegóły w: RUNCLOUD_SETUP.md
+
+3. SSL CERTIFICATE
+   ───────────────
+   Settings → SSL/TLS → Enable Let's Encrypt
+
+4. BACKEND (PM2)
+   ─────────────
+   Uruchom komendy:
+
+   cd /home/dashboards/webapps/dashboards/dashboard-generator
+   pm2 start ecosystem.config.js
+   pm2 save
+   pm2 startup
+
+5. SPRAWDŹ
+   ─────────
+   • Backend: curl http://localhost:3001/api/health
+   • Frontend: https://dashboards.tytan.kolabogroup.pl
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📁 WAŻNE PLIKI:
+
+• RUNCLOUD_SETUP.md - Pełna instrukcja konfiguracji
+• nginx-config-snippet.conf - Konfiguracja Nginx do skopiowania
+• ecosystem.config.js - Konfiguracja PM2
+• backend/.env - Zmienne środowiskowe (dodaj ANTHROPIC_API_KEY gdy będzie potrzebny)
+• frontend/dist/ - Zbudowana aplikacja
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔧 QUICK COMMANDS:
+
+pm2 status                           # Status backendu
+pm2 logs dashboard-generator-backend # Logi
+pm2 restart dashboard-generator-backend # Restart
+
+cd frontend && npm run build         # Rebuild frontendu
+
+═══════════════════════════════════════════════════════════════════════════════

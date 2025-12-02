@@ -310,9 +310,6 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
 
   useEffect(() => {
     if (dashboardData?.gridLayout) {
-      console.log('Setting layout from dashboardData:', dashboardData);
-      console.log('gridLayout:', dashboardData.gridLayout);
-
       // Calculate unique row count (number of distinct Y positions)
       const uniqueYs = new Set(dashboardData.gridLayout.map(item => item.y));
       const rowCount = uniqueYs.size;
@@ -340,50 +337,28 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
         };
       });
 
-      console.log('Clean layout:', cleanLayout);
-      console.log('Widget data map:', dataMap);
-
-      // Validate data consistency
-      const actualWidgetCount = cleanLayout.length;
-      const metadataWidgetCount = dashboardData.metadata?.widgetCount ?? 0;
-
-      if (actualWidgetCount !== metadataWidgetCount) {
-        console.warn(
-          `⚠️ Data inconsistency detected:\n` +
-          `   gridLayout has ${actualWidgetCount} widgets\n` +
-          `   metadata.widgetCount shows ${metadataWidgetCount}\n` +
-          `   This will be corrected when the dashboard is saved.`
-        );
-      }
-
       setLayout(cleanLayout);
       setWidgetDataMap(dataMap);
 
       // Load appName and appCategory from dashboard metadata if available
       if (dashboardData.metadata?.appName) {
-        console.log('Loading appName from dashboard metadata:', dashboardData.metadata.appName);
         setAppName(dashboardData.metadata.appName);
       }
       if (dashboardData.metadata?.appCategory) {
-        console.log('Loading appCategory from dashboard metadata:', dashboardData.metadata.appCategory);
         setAppCategory(dashboardData.metadata.appCategory);
       }
       // Load badge text and color from metadata (API-generated dashboards)
       if (dashboardData.metadata?.badgeText) {
-        console.log('Loading badgeText from dashboard metadata:', dashboardData.metadata.badgeText);
         setBadgeText(dashboardData.metadata.badgeText);
       }
       if (dashboardData.metadata?.badgeColor) {
-        console.log('Loading badgeColor from dashboard metadata:', dashboardData.metadata.badgeColor);
         setBadgeColor(dashboardData.metadata.badgeColor);
       }
       // Load skeleton mode from metadata (API-generated dashboards)
       if (dashboardData.metadata?.skeletonMode !== undefined) {
-        console.log('Loading skeletonMode from dashboard metadata:', dashboardData.metadata.skeletonMode);
         setShowSkeletonMode(dashboardData.metadata.skeletonMode);
       }
       if (dashboardData.metadata?.skeletonTitlesOnly !== undefined) {
-        console.log('Loading skeletonTitlesOnly from dashboard metadata:', dashboardData.metadata.skeletonTitlesOnly);
         setSkeletonTitlesOnly(dashboardData.metadata.skeletonTitlesOnly);
       }
     }
@@ -893,10 +868,6 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
         </div>
       );
     }
-
-    console.log('Widget data:', widgetData);
-    console.log('Available components:', Object.keys(componentRegistry));
-    console.log('Looking for component:', widgetData.component);
 
     const Component = componentRegistry[widgetData.component];
 
