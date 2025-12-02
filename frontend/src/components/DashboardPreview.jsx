@@ -498,8 +498,19 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
   }, [appName, appCategory, customCategoryName, customCategoryColor]); // Save whenever any setting changes
 
   const handleLayoutChange = (newLayout) => {
-    setLayout(newLayout);
-    // Layout changes are tracked in state, will be synced when saving
+    // Only update if layout actually changed (prevent infinite loops from React Grid Layout)
+    setLayout(prevLayout => {
+      // Compare layouts - only update if positions/sizes changed
+      if (prevLayout.length !== newLayout.length) return newLayout;
+
+      const hasChanged = newLayout.some((item, idx) => {
+        const prev = prevLayout[idx];
+        if (!prev) return true;
+        return item.x !== prev.x || item.y !== prev.y || item.w !== prev.w || item.h !== prev.h;
+      });
+
+      return hasChanged ? newLayout : prevLayout;
+    });
   };
 
   const handleExportPNG = async () => {
