@@ -56,6 +56,10 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
   const [settingsTab, setSettingsTab] = useState('general'); // 'general', 'widgets', 'display', 'badges', 'heights'
   const [autoExportDone, setAutoExportDone] = useState(false); // Track if auto-export has been triggered
 
+  // WordPress iframe integration mode
+  const isEmbedMode = urlParams?.embedMode === 'wordpress';
+  const [wpImageSent, setWpImageSent] = useState(false);
+
   // Default min height settings (value in grid rows, 7 rows ≈ 306px)
   const defaultMinHeightSettings = {
     cols2: { mode: 'auto', value: 7 },
@@ -102,6 +106,97 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
 
   // Ref for dashboard container (for thumbnail generation)
   const dashboardRef = useRef(null);
+
+  // WordPress postMessage integration - send image to parent iframe
+  const sendToWordPress = async (imageDataUrl, metadata = {}) => {
+    if (!isEmbedMode || !window.parent || window.parent === window) {
+      console.log('[WP] Not in embed mode or no parent window');
+      return false;
+    }
+
+    try {
+      window.parent.postMessage({
+        type: 'DASHBOARD_IMAGE_READY',
+        payload: {
+          imageData: imageDataUrl,
+          dashboardId: savedDashboardId,
+          dashboardName: dashboardName || 'Dashboard',
+          theme: theme,
+          timestamp: Date.now(),
+          ...metadata
+        }
+      }, '*'); // WordPress will verify origin
+
+      console.log('[WP] Image sent to WordPress parent');
+      setWpImageSent(true);
+      setTimeout(() => setWpImageSent(false), 3000);
+      return true;
+    } catch (error) {
+      console.error('[WP] Failed to send image to WordPress:', error);
+      return false;
+    }
+  };
+
+  // Listen for messages from WordPress parent (e.g., regenerate request)
+  useEffect(() => {
+    if (!isEmbedMode) return;
+
+    const handleMessage = async (event) => {
+      // In production, verify origin: if (event.origin !== 'https://your-wordpress-site.com') return;
+
+      const { type, payload } = event.data || {};
+      console.log('[WP] Received message:', type, payload);
+
+      switch (type) {
+        case 'REGENERATE_DASHBOARD':
+          // WordPress requests a new dashboard generation
+          console.log('[WP] Regenerate request received');
+          // If payload has preset, use it; otherwise regenerate with last preset
+          if (payload?.preset) {
+            // generateRandomDashboard is defined later, we'll call it indirectly
+            window.dispatchEvent(new CustomEvent('wp-regenerate', { detail: { preset: payload.preset } }));
+          } else if (lastGeneratedPreset) {
+            window.dispatchEvent(new CustomEvent('wp-regenerate', { detail: { preset: lastGeneratedPreset } }));
+          }
+          break;
+
+        case 'EXPORT_AND_SEND':
+          // WordPress requests current dashboard as image
+          console.log('[WP] Export and send request received');
+          await handleExportAndSendToWP();
+          break;
+
+        case 'GET_STATUS':
+          // WordPress asks for current status
+          window.parent.postMessage({
+            type: 'DASHBOARD_STATUS',
+            payload: {
+              ready: layout.length > 0,
+              dashboardId: savedDashboardId,
+              widgetCount: layout.length,
+              theme: theme
+            }
+          }, '*');
+          break;
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // Notify WordPress that dashboard is ready
+    if (layout.length > 0) {
+      window.parent.postMessage({
+        type: 'DASHBOARD_READY',
+        payload: {
+          dashboardId: savedDashboardId,
+          widgetCount: layout.length,
+          theme: theme
+        }
+      }, '*');
+    }
+
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isEmbedMode, layout, savedDashboardId, theme]);
 
   // Helper function to save user preferences with toast notification
   const savePreferencesWithToast = async (newPrefs) => {
@@ -476,6 +571,41 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
     }
   };
 
+  // Export PNG and send to WordPress (no download, just postMessage)
+  const handleExportAndSendToWP = async () => {
+    const element = document.getElementById('dashboard-grid');
+    if (!element) return;
+
+    try {
+      const dataUrl = await toPng(element, {
+        quality: 1.0,
+        pixelRatio: 2,
+        backgroundColor: '#f9fafb',
+      });
+
+      // Send to WordPress via postMessage
+      await sendToWordPress(dataUrl, {
+        widgetCount: layout.length,
+        exportedAt: new Date().toISOString()
+      });
+
+      // Also save on server if dashboard has ID
+      if (savedDashboardId) {
+        try {
+          await fetch(`/api/dashboards/${savedDashboardId}/export-png`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageData: dataUrl }),
+          });
+        } catch (uploadError) {
+          console.error('Failed to upload PNG to server:', uploadError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to export PNG for WordPress:', error);
+    }
+  };
+
   // Auto-export effect: automatically export PNG when autoExport=true in URL
   useEffect(() => {
     if (isAutoExportMode && !autoExportDone && layout.length > 0 && savedDashboardId) {
@@ -704,6 +834,25 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
       generateRandomDashboard(lastGeneratedPreset);
     }
   };
+
+  // Listen for WordPress regenerate events (from postMessage handler)
+  useEffect(() => {
+    if (!isEmbedMode) return;
+
+    const handleWpRegenerate = async (event) => {
+      const preset = event.detail?.preset || lastGeneratedPreset || '3+3';
+      console.log('[WP] Regenerating dashboard with preset:', preset);
+      await generateRandomDashboard(preset);
+
+      // Auto-send to WordPress after regeneration (with delay for charts to render)
+      setTimeout(async () => {
+        await handleExportAndSendToWP();
+      }, 2000);
+    };
+
+    window.addEventListener('wp-regenerate', handleWpRegenerate);
+    return () => window.removeEventListener('wp-regenerate', handleWpRegenerate);
+  }, [isEmbedMode, lastGeneratedPreset]);
 
   const handleEditWidget = (widgetId) => {
     const widgetData = widgetDataMap[widgetId];
@@ -1053,7 +1202,7 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
                     Theme
                   </label>
                   <div className="px-3 py-2 bg-gray-50 border border-gray-300 text-gray-700 capitalize">
-                    {theme}
+                    {typeof theme === 'object' ? theme.name : theme}
                   </div>
                 </div>
 
@@ -1581,7 +1730,7 @@ export default function DashboardPreview({ dashboardData, theme, onThemeChange, 
               </div>
               <div>
                 <div className="font-medium text-gray-900">Theme</div>
-                <div className="capitalize">{theme}</div>
+                <div className="capitalize">{typeof theme === 'object' ? theme.name : theme}</div>
               </div>
               <div>
                 <div className="font-medium text-gray-900">Generated</div>

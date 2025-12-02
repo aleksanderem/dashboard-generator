@@ -189,11 +189,12 @@ function App() {
     const skeletonMode = skeleton === 'true';
     const renderMode = searchParams.get('render') === 'true';
     const autoExport = searchParams.get('autoExport') === 'true';
+    const embedMode = searchParams.get('embedMode'); // 'wordpress' for WordPress iframe integration
 
-    console.log('[APP] URL Parameters:', { theme, appName, appCategory, id, skeletonMode, renderMode, autoExport });
+    console.log('[APP] URL Parameters:', { theme, appName, appCategory, id, skeletonMode, renderMode, autoExport, embedMode });
 
     // Store URL params
-    const params = { theme, appName, appCategory, id, skeletonMode, renderMode, autoExport };
+    const params = { theme, appName, appCategory, id, skeletonMode, renderMode, autoExport, embedMode };
     setUrlParams(params);
 
     // Apply theme if provided

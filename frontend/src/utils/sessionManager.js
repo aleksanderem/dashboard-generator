@@ -2,12 +2,41 @@ const SESSION_KEY = 'dashboard_session_key';
 const SESSION_EMAIL = 'dashboard_session_email';
 const SESSION_CREATED = 'dashboard_session_created';
 
+// In-memory fallback when localStorage is blocked (e.g., in iframe)
+const memoryStorage = {};
+
+function safeGetItem(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (e) {
+    console.warn('[Session] localStorage blocked, using memory storage');
+    return memoryStorage[key] || null;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn('[Session] localStorage blocked, using memory storage');
+    memoryStorage[key] = value;
+  }
+}
+
+function safeRemoveItem(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {
+    delete memoryStorage[key];
+  }
+}
+
 /**
  * Get current session key from localStorage
  * @returns {string|null} Session key or null
  */
 export function getSessionKey() {
-  return localStorage.getItem(SESSION_KEY);
+  return safeGetItem(SESSION_KEY);
 }
 
 /**
@@ -15,7 +44,7 @@ export function getSessionKey() {
  * @returns {string|null} Email or null
  */
 export function getSessionEmail() {
-  return localStorage.getItem(SESSION_EMAIL);
+  return safeGetItem(SESSION_EMAIL);
 }
 
 /**
@@ -23,9 +52,9 @@ export function getSessionEmail() {
  * @returns {object|null} Session info or null
  */
 export function getSession() {
-  const key = localStorage.getItem(SESSION_KEY);
-  const email = localStorage.getItem(SESSION_EMAIL);
-  const createdAt = localStorage.getItem(SESSION_CREATED);
+  const key = safeGetItem(SESSION_KEY);
+  const email = safeGetItem(SESSION_EMAIL);
+  const createdAt = safeGetItem(SESSION_CREATED);
 
   if (!key || !email) return null;
 
@@ -47,18 +76,18 @@ export function isLoggedIn() {
  * @param {string} createdAt - Creation date
  */
 export function saveSession(sessionKey, email, createdAt) {
-  localStorage.setItem(SESSION_KEY, sessionKey);
-  localStorage.setItem(SESSION_EMAIL, email);
-  localStorage.setItem(SESSION_CREATED, createdAt || new Date().toISOString());
+  safeSetItem(SESSION_KEY, sessionKey);
+  safeSetItem(SESSION_EMAIL, email);
+  safeSetItem(SESSION_CREATED, createdAt || new Date().toISOString());
 }
 
 /**
  * Clear session from localStorage (logout)
  */
 export function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(SESSION_EMAIL);
-  localStorage.removeItem(SESSION_CREATED);
+  safeRemoveItem(SESSION_KEY);
+  safeRemoveItem(SESSION_EMAIL);
+  safeRemoveItem(SESSION_CREATED);
 }
 
 /**
